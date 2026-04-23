@@ -1,9 +1,9 @@
 import { useEffect, useRef } from 'react'
 import { BOARD_HEIGHT, BOARD_WIDTH, PIECES } from '../logic/tetrominoes'
+import { ZONE_DURATION_MS } from '../logic/gameEngine'
 
 const CELL_SIZE = 26
 const TAP_THRESHOLD_PX = 14
-const ZONE_DURATION_MS = 8000
 
 const drawCell = (ctx, x, y, color, alpha = 1, blur = 12) => {
   ctx.save()
@@ -117,7 +117,8 @@ export default function GameCanvas({ state, onTap, onSwipe }) {
 
     // Particles — neon circles with glow
     state.particles.forEach((p) => {
-      const alpha = Math.max(0, p.ttl / (p.maxTtl ?? p.ttl + 1))
+      const maxTtl = p.maxTtl ?? 240
+      const alpha = Math.max(0, p.ttl / maxTtl)
       const px = p.x * CELL_SIZE
       const py = p.y * CELL_SIZE
       const radius = ((p.size ?? 6) * alpha) / 2

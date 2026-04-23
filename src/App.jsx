@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import './App.css'
 import GameCanvas from './components/GameCanvas'
 import TouchControls from './components/TouchControls'
-import { TetrisEngine } from './logic/gameEngine'
+import { TetrisEngine, ZONE_DURATION_MS } from './logic/gameEngine'
 import { PIECES } from './logic/tetrominoes'
 
 const KEY_BINDINGS = {
@@ -228,7 +228,7 @@ function App() {
             <div
               className={`zone-meter-fill${state.zoneActive ? ' zone-active' : ''}${zoneReady && !state.zoneActive ? ' zone-ready' : ''}`}
               style={{
-                width: `${state.zoneActive ? (state.zoneTimer / 8000) * 100 : state.zoneMeter}%`,
+                width: `${state.zoneActive ? (state.zoneTimer / ZONE_DURATION_MS) * 100 : state.zoneMeter}%`,
               }}
             />
           </div>

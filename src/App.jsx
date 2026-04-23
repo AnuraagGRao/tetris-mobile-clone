@@ -13,6 +13,9 @@ const KEY_BINDINGS = {
   KeyZ: { action: 'rotateCCW' },
   Space: { action: 'hardDrop' },
   KeyC: { action: 'hold' },
+  ShiftLeft: { action: 'activateZone' },
+  ShiftRight: { action: 'activateZone' },
+  KeyX: { action: 'activateZone' },
 }
 
 const TRACK_URL = 'https://ncs.soundcloud.com/CARTOON-ON-AND-ON_1.mp3'
@@ -20,19 +23,44 @@ const MAX_FRAME_TIME_MS = 34
 const ToneContext = window.AudioContext || window.webkitAudioContext
 let sharedAudioContext
 
-const playTone = (frequency = 600, duration = 0.04, gain = 0.03) => {
-  if (!ToneContext) return
+const getAudioCtx = () => {
+  if (!ToneContext) return null
   if (!sharedAudioContext) sharedAudioContext = new ToneContext()
-  const context = sharedAudioContext
-  const oscillator = context.createOscillator()
-  const gainNode = context.createGain()
-  oscillator.connect(gainNode)
-  gainNode.connect(context.destination)
-  oscillator.frequency.value = frequency
-  gainNode.gain.value = gain
-  oscillator.start()
-  oscillator.stop(context.currentTime + duration)
+  return sharedAudioContext
 }
+
+const playNote = (freq, duration, gain, type = 'sine', startOffset = 0) => {
+  const ctx = getAudioCtx()
+  if (!ctx) return
+  const osc = ctx.createOscillator()
+  const g = ctx.createGain()
+  osc.connect(g)
+  g.connect(ctx.destination)
+  osc.type = type
+  osc.frequency.value = freq
+  const t = ctx.currentTime + startOffset
+  g.gain.setValueAtTime(gain, t)
+  g.gain.exponentialRampToValueAtTime(0.001, t + duration)
+  osc.start(t)
+  osc.stop(t + duration + 0.01)
+}
+
+const playArpeggio = (notes, noteDuration = 0.07, gain = 0.04, type = 'triangle') => {
+  notes.forEach((freq, i) => playNote(freq, noteDuration, gain, type, i * noteDuration * 0.65))
+}
+
+// SFX helpers
+const playHardDropSFX = () => {
+  playNote(85, 0.12, 0.08, 'square')
+  playNote(130, 0.08, 0.04, 'sawtooth')
+}
+const playRotateSFX = () => playNote(680, 0.03, 0.022, 'triangle')
+const playLineClearSFX = () => playArpeggio([523, 659, 784], 0.06, 0.035, 'sine')
+const playTSpinSFX = () => playArpeggio([523, 659, 784, 1047], 0.07, 0.045, 'triangle')
+const playTetrisSFX = () => playArpeggio([392, 523, 659, 784, 1047], 0.065, 0.045, 'sine')
+const playZoneActivateSFX = () => playArpeggio([262, 330, 392, 523, 784], 0.09, 0.04, 'triangle')
+const playGameOverSFX = () =>
+  playArpeggio([523, 466, 415, 370, 330, 294, 262], 0.1, 0.04, 'sawtooth')
 
 function PiecePreview({ type }) {
   if (!type) return <div className="preview-box muted">Empty</div>
@@ -52,7 +80,7 @@ function App() {
   const heldRef = useRef({ left: false, right: false, softDrop: false })
   const actionRef = useRef({})
   const audioRef = useRef(null)
-  const prevLinesRef = useRef(0)
+  const prevGameOverRef = useRef(false)
   const [musicOn, setMusicOn] = useState(false)
 
   useEffect(() => {
@@ -69,8 +97,18 @@ function App() {
       engine.update(dt, heldRef.current, actionRef.current)
       actionRef.current = {}
       const nextState = engine.getState()
-      if (nextState.lines > prevLinesRef.current) playTone(900, 0.08, 0.035)
-      prevLinesRef.current = nextState.lines
+
+      // Event-driven sound triggers
+      if (nextState.hardDropped) playHardDropSFX()
+      if (nextState.lastClear) {
+        const { spinType, lines } = nextState.lastClear
+        if (spinType === 'tSpin' || spinType === 'allSpin') playTSpinSFX()
+        else if (lines === 4) playTetrisSFX()
+        else if (lines > 0) playLineClearSFX()
+      }
+      if (nextState.gameOver && !prevGameOverRef.current) playGameOverSFX()
+      prevGameOverRef.current = nextState.gameOver
+
       setState(nextState)
       frameId = requestAnimationFrame(frame)
     }
@@ -85,7 +123,11 @@ function App() {
       if (!binding) return
       event.preventDefault()
       if (binding.held) heldRef.current[binding.held] = true
-      if (binding.action) actionRef.current[binding.action] = true
+      if (binding.action) {
+        actionRef.current[binding.action] = true
+        if (binding.action === 'rotateCW' || binding.action === 'rotateCCW') playRotateSFX()
+        if (binding.action === 'activateZone') playZoneActivateSFX()
+      }
     }
 
     const up = (event) => {
@@ -118,21 +160,24 @@ function App() {
       setTimeout(() => {
         heldRef.current[direction] = false
       }, 90)
-      playTone(430, 0.03)
       return
     }
     if (direction === 'down') {
       actionRef.current.hardDrop = true
-      playTone(280, 0.06)
       return
     }
     actionRef.current.hold = true
-    playTone(520, 0.04)
   }
 
   const triggerAction = (action) => {
     actionRef.current[action] = true
-    playTone(action === 'hardDrop' ? 260 : 700, action === 'hardDrop' ? 0.06 : 0.04)
+    if (action === 'rotateCW' || action === 'rotateCCW') playRotateSFX()
+    else if (action === 'hardDrop') playHardDropSFX()
+  }
+
+  const handleZoneActivate = () => {
+    actionRef.current.activateZone = true
+    playZoneActivateSFX()
   }
 
   const toggleMusic = async () => {
@@ -150,6 +195,8 @@ function App() {
       setMusicOn(false)
     }
   }
+
+  const zoneReady = state.zoneMeter >= 100
 
   return (
     <main className="app" style={{ touchAction: 'none' }}>
@@ -169,6 +216,30 @@ function App() {
             <span>Lines</span>
             <strong>{state.lines}</strong>
           </div>
+        </div>
+
+        {state.backToBack && <div className="b2b-indicator">🔥 B2B</div>}
+
+        <div className="zone-wrap">
+          <div className="zone-label">
+            Zone{state.zoneActive ? ` (${Math.ceil(state.zoneTimer / 1000)}s)` : ''}
+          </div>
+          <div className="zone-meter-bar">
+            <div
+              className={`zone-meter-fill${state.zoneActive ? ' zone-active' : ''}${zoneReady && !state.zoneActive ? ' zone-ready' : ''}`}
+              style={{
+                width: `${state.zoneActive ? (state.zoneTimer / 8000) * 100 : state.zoneMeter}%`,
+              }}
+            />
+          </div>
+          {zoneReady && !state.zoneActive && (
+            <button type="button" className="action zone-btn" onClick={handleZoneActivate}>
+              Activate Zone! (X / Shift)
+            </button>
+          )}
+          {state.zoneActive && (
+            <div className="zone-lines">Zone lines: {state.zoneLines}</div>
+          )}
         </div>
 
         <label>
@@ -221,7 +292,6 @@ function App() {
           onPress={(key, hold) => {
             if (hold) {
               handlePress(key, hold)
-              playTone(450, 0.03)
               return
             }
             triggerAction(key)

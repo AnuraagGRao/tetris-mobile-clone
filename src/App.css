@@ -154,6 +154,87 @@ h2 {
   backdrop-filter: blur(2px);
 }
 
+.b2b-indicator {
+  text-align: center;
+  font-size: 0.85rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: #ffcc44;
+  text-shadow: 0 0 10px #ffaa00;
+  margin-bottom: 0.5rem;
+  animation: b2b-pulse 0.8s ease-in-out infinite alternate;
+}
+
+@keyframes b2b-pulse {
+  from { opacity: 0.75; }
+  to   { opacity: 1; text-shadow: 0 0 18px #ffcc00; }
+}
+
+.zone-wrap {
+  margin-bottom: 0.75rem;
+}
+
+.zone-label {
+  font-size: 0.75rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  opacity: 0.75;
+  margin-bottom: 0.25rem;
+}
+
+.zone-meter-bar {
+  height: 8px;
+  border-radius: 4px;
+  background: rgba(30, 50, 100, 0.7);
+  overflow: hidden;
+  border: 1px solid rgba(100, 180, 255, 0.3);
+}
+
+.zone-meter-fill {
+  height: 100%;
+  border-radius: 4px;
+  background: linear-gradient(90deg, #1e90ff, #00cfff);
+  transition: width 0.15s ease;
+}
+
+.zone-meter-fill.zone-ready {
+  background: linear-gradient(90deg, #00cfff, #ffffff);
+  box-shadow: 0 0 8px #00cfff;
+  animation: zone-ready-pulse 0.5s ease-in-out infinite alternate;
+}
+
+.zone-meter-fill.zone-active {
+  background: linear-gradient(90deg, #8844ff, #00cfff);
+  box-shadow: 0 0 12px #6644ff;
+  animation: zone-active-glow 0.4s ease-in-out infinite alternate;
+}
+
+@keyframes zone-ready-pulse {
+  from { box-shadow: 0 0 6px #00cfff; }
+  to   { box-shadow: 0 0 16px #ffffff; }
+}
+
+@keyframes zone-active-glow {
+  from { box-shadow: 0 0 8px #6644ff; }
+  to   { box-shadow: 0 0 20px #aa88ff; }
+}
+
+.zone-btn {
+  margin-top: 0.4rem;
+  background: linear-gradient(160deg, #1a1060, #0e1a4a);
+  border-color: rgba(100, 200, 255, 0.8);
+  color: #cceeff;
+  font-weight: 700;
+  animation: zone-ready-pulse 0.5s ease-in-out infinite alternate;
+}
+
+.zone-lines {
+  font-size: 0.78rem;
+  opacity: 0.85;
+  margin-top: 0.3rem;
+  color: #88ddff;
+}
+
 @media (min-width: 980px) {
   .app {
     grid-template-columns: 320px auto;

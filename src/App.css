@@ -28,6 +28,8 @@ body {
   border-radius: 14px;
   padding: 0.9rem;
   box-shadow: 0 0 24px rgba(95, 191, 255, 0.25);
+  overflow-y: auto;
+  max-height: 100svh;
 }
 
 h1 {
@@ -88,15 +90,20 @@ h2 {
 .preview-box {
   display: grid;
   place-items: center;
-  min-height: 2.4rem;
+  height: 2.4rem;
   border: 1px solid rgba(130, 182, 255, 0.35);
   border-radius: 8px;
   background: rgba(5, 9, 24, 0.9);
 }
 
-.preview-piece {
-  font-size: 1.1rem;
-  text-shadow: 0 0 12px currentColor;
+.preview-canvas {
+  display: block;
+  image-rendering: pixelated;
+}
+
+.preview-empty {
+  opacity: 0.3;
+  font-size: 1rem;
 }
 
 .muted {
@@ -151,7 +158,33 @@ h2 {
   font-size: 1.5rem;
   color: #fff;
   text-shadow: 0 0 12px #6ea7ff;
-  backdrop-filter: blur(2px);
+  backdrop-filter: blur(3px);
+  background: rgba(5, 6, 18, 0.55);
+  border-radius: 14px;
+  text-align: center;
+  gap: 0.3rem;
+  align-content: center;
+}
+
+.overlay-sub {
+  font-size: 1rem;
+  margin-top: 0.15rem;
+  opacity: 0.85;
+  color: #c4b5fd;
+  text-shadow: none;
+}
+
+.overlay-restart {
+  margin-top: 1rem;
+  padding: 0.5rem 1.4rem;
+  border-radius: 10px;
+  border: 1px solid rgba(140, 213, 255, 0.7);
+  background: linear-gradient(160deg, #10214b, #111f3c);
+  color: #e9f7ff;
+  font-size: 1rem;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 0 14px rgba(95, 191, 255, 0.3);
 }
 
 .b2b-indicator {
@@ -250,5 +283,230 @@ h2 {
 
   .touch-controls {
     max-width: 330px;
+  }
+}
+
+/* ── Mode selector ─────────────────────────────────────────────────────────── */
+.mode-select {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.4rem;
+  margin-bottom: 0.75rem;
+}
+
+.mode-btn {
+  padding: 0.4rem;
+  border-radius: 8px;
+  border: 1px solid rgba(140, 213, 255, 0.4);
+  background: rgba(18, 33, 69, 0.6);
+  color: #c0d4f0;
+  font-size: 0.82rem;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.mode-btn.active {
+  background: linear-gradient(160deg, #2a1060, #1a2a60);
+  border-color: #a78bfa;
+  color: #e0d4ff;
+  font-weight: 700;
+  box-shadow: 0 0 10px rgba(167, 139, 250, 0.35);
+}
+
+/* ── Purify mode UI ────────────────────────────────────────────────────────── */
+.purify-stats {
+  margin-bottom: 0.75rem;
+  background: rgba(40, 10, 70, 0.5);
+  border: 1px solid rgba(139, 92, 246, 0.4);
+  border-radius: 10px;
+  padding: 0.6rem 0.75rem;
+}
+
+.purify-timer {
+  font-size: 1.6rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-align: center;
+  text-shadow: 0 0 14px currentColor;
+  font-variant-numeric: tabular-nums;
+  transition: color 0.5s;
+}
+
+.purify-count {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 0.35rem;
+  font-size: 0.82rem;
+}
+
+.purify-count span {
+  opacity: 0.75;
+}
+
+.purify-count strong {
+  font-size: 1.15rem;
+  color: #c4b5fd;
+  text-shadow: 0 0 8px #8b5cf6;
+}
+
+.overlay-sub {
+  font-size: 1rem;
+  margin-top: 0.4rem;
+  opacity: 0.85;
+  color: #c4b5fd;
+}
+
+/* ── Combo indicator ─────────────────────────────────────────────────────── */
+.combo-indicator {
+  text-align: center;
+  font-size: 1.05rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  color: #fbbf24;
+  text-shadow: 0 0 14px #f59e0b;
+  margin-bottom: 0.5rem;
+  animation: combo-pop 0.25s ease-out;
+}
+
+@keyframes combo-pop {
+  from { transform: scale(1.3); opacity: 0.6; }
+  to   { transform: scale(1);   opacity: 1;   }
+}
+
+/* ── High score ──────────────────────────────────────────────────────────── */
+.high-score {
+  grid-column: 1 / -1;
+  font-size: 0.72rem;
+  color: #7dd3fc;
+  opacity: 0.75;
+  text-align: center;
+}
+
+/* ── Badge 20G ───────────────────────────────────────────────────────────── */
+.badge-20g {
+  display: inline-block;
+  background: #ef4444;
+  color: #fff;
+  font-size: 0.6rem;
+  font-weight: 800;
+  border-radius: 4px;
+  padding: 1px 4px;
+  margin-left: 4px;
+  vertical-align: middle;
+  letter-spacing: 0.05em;
+}
+
+/* ── Blitz timer ─────────────────────────────────────────────────────────── */
+.blitz-timer {
+  grid-column: 1 / -1;
+  font-size: 1.4rem;
+  font-weight: 700;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+  text-shadow: 0 0 12px currentColor;
+  transition: color 0.4s;
+}
+
+.stats-player-label {
+  grid-column: 1 / -1;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  color: #60a5fa;
+  text-transform: uppercase;
+  margin-bottom: -0.25rem;
+}
+
+/* ── Countdown overlay ───────────────────────────────────────────────────── */
+.countdown-overlay {
+  background: rgba(5, 6, 20, 0.7);
+  backdrop-filter: blur(6px);
+}
+
+.countdown-number {
+  font-size: 6rem;
+  font-weight: 900;
+  color: #fff;
+  text-shadow: 0 0 40px #00cfff, 0 0 80px #0099cc;
+  animation: cd-beat 0.25s ease-out;
+}
+
+@keyframes cd-beat {
+  from { transform: scale(1.5); opacity: 0.4; }
+  to   { transform: scale(1);   opacity: 1;   }
+}
+
+/* ── Overlay title / new high ────────────────────────────────────────────── */
+.overlay-title {
+  font-size: 2rem;
+  font-weight: 900;
+  text-shadow: 0 0 20px #6ea7ff;
+}
+
+.overlay-new-high {
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: #fbbf24;
+  text-shadow: 0 0 14px #f59e0b;
+  animation: combo-pop 0.35s ease-out;
+}
+
+/* ── Action button row ───────────────────────────────────────────────────── */
+.action-row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.4rem;
+  margin-top: 0.5rem;
+}
+
+.action-row .action {
+  margin-top: 0;
+  font-size: 0.75rem;
+  padding: 0.45rem 0.3rem;
+}
+
+/* ── 8-button 4-column touch controls ────────────────────────────────────── */
+.touch-controls-8 {
+  grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+}
+
+/* ── Versus layout ───────────────────────────────────────────────────────── */
+.app.versus {
+  grid-template-columns: 200px auto auto;
+  gap: 0.75rem;
+}
+
+.game-area-p2 {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  align-items: center;
+}
+
+.garbage-warning {
+  background: rgba(239, 68, 68, 0.2);
+  border: 1px solid rgba(239, 68, 68, 0.6);
+  border-radius: 8px;
+  padding: 0.3rem 0.6rem;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #fca5a5;
+  text-shadow: 0 0 8px #ef4444;
+  text-align: center;
+  animation: combo-pop 0.2s ease-out;
+}
+
+.p2-hint {
+  font-size: 0.7rem;
+  opacity: 0.5;
+  text-align: center;
+  margin-top: 0.2rem;
+}
+
+@media (max-width: 980px) {
+  .app.versus {
+    grid-template-columns: 1fr;
   }
 }

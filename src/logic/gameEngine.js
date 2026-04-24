@@ -2,6 +2,11 @@ import { createBag } from './randomBag'
 import { I_KICKS, JLSTZ_KICKS } from './srs'
 import { BOARD_HEIGHT, BOARD_WIDTH, PIECES } from './tetrominoes'
 
+export const GAME_MODE = { NORMAL: 'normal', SPRINT: 'sprint', BLITZ: 'blitz', MASTER: 'master', PURIFY: 'purify', VERSUS: 'versus' }
+export const PURIFY_DURATION_MS = 180000
+export const BLITZ_DURATION_MS  = 120000
+export const SPRINT_LINES       = 40
+
 const SCORE_BY_CLEAR = [0, 100, 300, 500, 800]
 const T_SPIN_SCORE = [400, 800, 1200, 1600]
 const MINI_T_SPIN_SCORE = [100, 200, 400]
@@ -12,6 +17,11 @@ export const ZONE_DURATION_MS = 8000
 const ZONE_FILL_PER_LINE = 25
 const PARTICLES_PER_CELL = 3
 
+// Garbage lines sent per clear type in Versus mode
+const GARBAGE_BY_LINES = [0, 0, 1, 2, 4]
+const TSPIN_GARBAGE    = [2, 2, 4, 6]   // tspin 0/1/2/3 lines
+const COMBO_GARBAGE    = [0, 0, 1, 1, 2, 2, 3, 3, 4, 4, 4, 5]
+
 const DEFAULT_SETTINGS = {
   das: 110,
   arr: 25,
@@ -20,6 +30,34 @@ const DEFAULT_SETTINGS = {
 
 const createEmptyBoard = () =>
   Array.from({ length: BOARD_HEIGHT }, () => Array.from({ length: BOARD_WIDTH }, () => null))
+
+const createInfectedRow = () => {
+  const row = Array(BOARD_WIDTH).fill(null)
+  const holes = new Set()
+  while (holes.size < 3) holes.add(Math.floor(Math.random() * BOARD_WIDTH))
+  for (let x = 0; x < BOARD_WIDTH; x++) {
+    if (!holes.has(x)) row[x] = 'INF'
+  }
+  return row
+}
+
+// Column-based purify board: infected blocks stand in isolated vertical columns.
+// A single tetromino landing on a column instantly purifies the cells it covers.
+const createPurifyBoard = () => {
+  const board = createEmptyBoard()
+  const infectedCols = []
+  while (infectedCols.length < 5) {
+    const c = Math.floor(Math.random() * BOARD_WIDTH)
+    if (!infectedCols.includes(c)) infectedCols.push(c)
+  }
+  const infHeight = 6 + Math.floor(Math.random() * 3)
+  for (const col of infectedCols) {
+    for (let y = BOARD_HEIGHT - infHeight; y < BOARD_HEIGHT; y++) {
+      board[y][col] = 'INF'
+    }
+  }
+  return { board, infectedCols }
+}
 
 const cloneMatrix = (matrix) => matrix.map((row) => [...row])
 
@@ -152,11 +190,20 @@ const getSpinLabel = (spinType, lines, b2b) => {
 export class TetrisEngine {
   constructor(settings = {}) {
     this.settings = { ...DEFAULT_SETTINGS, ...settings }
+    this.mode = GAME_MODE.NORMAL
     this.reset()
   }
 
-  reset() {
-    this.board = createEmptyBoard()
+  reset(mode = this.mode) {
+    this.mode = mode
+    if (mode === GAME_MODE.PURIFY) {
+      const { board, infectedCols } = createPurifyBoard()
+      this.board = board
+      this.infectedCols = infectedCols
+    } else {
+      this.board = createEmptyBoard()
+      this.infectedCols = []
+    }
     this.bag = createBag()
     this.queue = []
     this.hold = null
@@ -165,12 +212,20 @@ export class TetrisEngine {
     this.lines = 0
     this.level = 1
     this.gameOver = false
+    this.gameOverReason = null
     this.particles = []
     this.floatingTexts = []
     this.gravityTimer = 0
     this.lockTimer = 0
+    this.lockResets = 0
+    this.lowestY = 0
+    this.lockFlash = false
     this.shake = 0
     this.backToBack = false
+    this.combo = 0
+    this.lastCombo = 0
+    this.paused = false
+    this.elapsedTime = 0
     this.lastActionWasRotation = false
     this.lastKickIndex = 0
     this.zoneMeter = 0
@@ -179,13 +234,26 @@ export class TetrisEngine {
     this.zoneLines = 0
     this.lastClear = null
     this.hardDropped = false
+    this.blocksPurified = 0
+    this.purifyTimer = PURIFY_DURATION_MS
+    this.blitzTimer  = BLITZ_DURATION_MS
+    this.infectionTimer = 10000 + Math.random() * 5000
+    // Versus / garbage
+    this.pendingGarbage = 0
+    this.lastGarbage = 0
+    // Zone floor (lines captured during Zone sitting at the bottom)
+    this.zoneFloor = 0
     this.horizontalState = {
       left: { active: false, timer: 0, repeat: 0 },
       right: { active: false, timer: 0, repeat: 0 },
     }
     while (this.queue.length < 5) this.fillQueue()
     this.current = this.nextPiece()
-    if (collides(this.board, this.current, this.current.x, this.current.y)) this.gameOver = true
+    this.lowestY = this.current.y
+    if (collides(this.board, this.current, this.current.x, this.current.y)) {
+      this.gameOver = true
+      this.gameOverReason = 'topout'
+    }
   }
 
   setSettings(settings) {
@@ -207,8 +275,8 @@ export class TetrisEngine {
     const nextX = this.current.x + direction
     if (collides(this.board, this.current, nextX, this.current.y)) return false
     this.current.x = nextX
-    this.lockTimer = 0
     this.lastActionWasRotation = false
+    if (this.lockResets < 15) { this.lockTimer = 0; this.lockResets += 1 }
     return true
   }
 
@@ -232,9 +300,9 @@ export class TetrisEngine {
         this.current.rotation = to
         this.current.x = x
         this.current.y = y
-        this.lockTimer = 0
         this.lastActionWasRotation = true
         this.lastKickIndex = i
+        if (this.lockResets < 15) { this.lockTimer = 0; this.lockResets += 1 }
         return true
       }
     }
@@ -251,6 +319,7 @@ export class TetrisEngine {
     this.lastActionWasRotation = false
     if (collides(this.board, this.current, this.current.x, this.current.y)) {
       this.gameOver = true
+      this.gameOverReason = 'topout'
     }
     return true
   }
@@ -291,16 +360,57 @@ export class TetrisEngine {
     // Snapshot board colors for particle generation
     const boardSnapshot = this.board.map((row) => [...row])
 
+    // Count INF cells the piece will overwrite — purification on contact
+    if (this.mode === GAME_MODE.PURIFY) {
+      for (let py = 0; py < this.current.matrix.length; py += 1) {
+        for (let px = 0; px < this.current.matrix[py].length; px += 1) {
+          if (!this.current.matrix[py][px]) continue
+          const bx = this.current.x + px
+          const by = this.current.y + py
+          if (by >= 0 && by < BOARD_HEIGHT && bx >= 0 && bx < BOARD_WIDTH) {
+            if (this.board[by][bx] === 'INF') this.blocksPurified += 1
+          }
+        }
+      }
+      this.score = this.blocksPurified * 10
+    }
+
+    this.lockFlash = true
     mergePiece(this.board, this.current)
-    const { board, rows } = clearLines(this.board)
-    this.board = board
+
+    let rows
+    if (this.zoneActive) {
+      // During Zone: complete rows are captured at the board bottom as ZONE cells
+      // (play area shrinks upward; ZONE rows act as a rising solid floor)
+      const activeHeight = BOARD_HEIGHT - this.zoneFloor
+      const activePart = this.board.slice(0, activeHeight)
+      const completedRows = []
+      const remaining = activePart.filter((row, y) => {
+        if (row.every(Boolean)) { completedRows.push(y); return false }
+        return true
+      })
+      while (remaining.length < activeHeight) remaining.unshift(Array(BOARD_WIDTH).fill(null))
+      const zoneRow = () => Array(BOARD_WIDTH).fill('ZONE')
+      const zonePart = Array.from({ length: completedRows.length }, zoneRow)
+      this.board = [...remaining, ...zonePart, ...this.board.slice(activeHeight)]
+      this.zoneFloor += completedRows.length
+      rows = completedRows
+    } else {
+      const result = clearLines(this.board)
+      this.board = result.board
+      rows = result.rows
+    }
 
     if (rows.length) {
       const cleared = rows.length
       let points = 0
       let isSpecialClear = false
 
-      if (spinType === 'tSpin') {
+      if (this.mode === GAME_MODE.PURIFY) {
+        // Purify mode: score = blocksPurified * 10, no standard line points
+        this.score = this.blocksPurified * 10
+        isSpecialClear = false
+      } else if (spinType === 'tSpin') {
         points = T_SPIN_SCORE[Math.min(cleared, T_SPIN_SCORE.length - 1)]
         isSpecialClear = true
         this.shake = Math.max(this.shake, 8)
@@ -315,18 +425,34 @@ export class TetrisEngine {
       }
 
       const prevB2B = this.backToBack
-      if (isSpecialClear && this.backToBack) {
-        points = Math.floor(points * B2B_MULTIPLIER)
+      if (this.mode !== GAME_MODE.PURIFY) {
+        if (isSpecialClear && this.backToBack) {
+          points = Math.floor(points * B2B_MULTIPLIER)
+        }
+        if (isSpecialClear) {
+          this.backToBack = true
+        } else if (cleared > 0 && spinType !== 'tSpinMini') {
+          this.backToBack = false
+        }
+        this.lines += cleared
+        this.score += points * this.level
+      } else {
+        this.lines += cleared
       }
-      if (isSpecialClear) {
-        this.backToBack = true
-      } else if (cleared > 0 && spinType !== 'tSpinMini') {
-        this.backToBack = false
+      this.level = Math.floor(this.lines / 10) + 1
+
+      // Combo
+      this.combo += 1
+      this.lastCombo = this.combo
+      if (this.mode !== GAME_MODE.PURIFY) {
+        this.score += 50 * this.combo * this.level
       }
 
-      this.lines += cleared
-      this.score += points * this.level
-      this.level = Math.floor(this.lines / 10) + 1
+      // Sprint end check
+      if (this.mode === GAME_MODE.SPRINT && this.lines >= SPRINT_LINES) {
+        this.gameOver = true
+        this.gameOverReason = 'complete'
+      }
 
       if (this.zoneActive) {
         this.zoneLines += cleared
@@ -347,6 +473,19 @@ export class TetrisEngine {
 
       this.lastClear = { spinType, lines: cleared, backToBack: prevB2B && isSpecialClear }
       this.spawnEnhancedParticles(rows, boardSnapshot)
+
+      // Versus mode: compute outgoing garbage
+      if (this.mode === GAME_MODE.VERSUS) {
+        let garbage = 0
+        if (spinType === 'tSpin' || spinType === 'allSpin') {
+          garbage = TSPIN_GARBAGE[Math.min(cleared, TSPIN_GARBAGE.length - 1)]
+        } else {
+          garbage = GARBAGE_BY_LINES[Math.min(cleared, GARBAGE_BY_LINES.length - 1)]
+        }
+        if (prevB2B && isSpecialClear) garbage += 1
+        garbage += COMBO_GARBAGE[Math.min(this.combo, COMBO_GARBAGE.length - 1)]
+        this.lastGarbage = garbage
+      }
     } else if (spinType === 'tSpin') {
       // T-Spin with no line clear still scores
       this.score += T_SPIN_SCORE[0] * this.level
@@ -359,15 +498,30 @@ export class TetrisEngine {
         maxTtl: 120,
       })
       this.lastClear = { spinType: 'tSpin', lines: 0, backToBack: false }
+      this.combo = 0
+      this.lastCombo = 0
+    } else {
+      this.combo = 0
+      this.lastCombo = 0
     }
 
     this.current = this.nextPiece()
+    this.lowestY = this.current.y
+    this.lockResets = 0
     this.canHold = true
     this.gravityTimer = 0
     this.lockTimer = 0
     this.lastActionWasRotation = false
+
+    // Apply received garbage just before the new piece appears (Versus mode)
+    if (this.pendingGarbage > 0) {
+      this._applyGarbage(this.pendingGarbage)
+      this.pendingGarbage = 0
+    }
+
     if (collides(this.board, this.current, this.current.x, this.current.y)) {
       this.gameOver = true
+      this.gameOverReason = 'topout'
     }
   }
 
@@ -398,17 +552,42 @@ export class TetrisEngine {
     this.zoneActive = true
     this.zoneTimer = ZONE_DURATION_MS
     this.zoneLines = 0
+    this.zoneFloor = 0
     this.zoneMeter = 0
     return true
+  }
+
+  addInfectionLayer() {
+    this.board.shift()
+    const newRow = Array(BOARD_WIDTH).fill(null)
+    for (const col of this.infectedCols) newRow[col] = 'INF'
+    this.board.push(newRow)
+    this.shake = Math.max(this.shake, 4)
+    this.floatingTexts.push({
+      text: '⚠ INFECTION SPREADING!',
+      x: 0,
+      y: 10,
+      ttl: 120,
+      maxTtl: 120,
+    })
+    if (collides(this.board, this.current, this.current.x, this.current.y)) {
+      this.gameOver = true
+      this.gameOverReason = 'topout'
+    }
   }
 
   deactivateZone() {
     this.zoneActive = false
     this.zoneTimer = 0
-    if (this.zoneLines > 0) {
-      const bonus = this.zoneLines * this.zoneLines * 100 * this.level
+    if (this.zoneFloor > 0) {
+      // Remove all captured ZONE rows and restore empty rows at the top
+      this.board = [
+        ...Array(this.zoneFloor).fill(null).map(() => Array(BOARD_WIDTH).fill(null)),
+        ...this.board.slice(0, BOARD_HEIGHT - this.zoneFloor),
+      ]
+      const bonus = this.zoneFloor * this.zoneFloor * 100 * this.level
       this.score += bonus
-      this.shake = Math.min(15, 4 + this.zoneLines)
+      this.shake = Math.min(15, 4 + this.zoneFloor)
       this.floatingTexts.push({
         text: `ZONE CLEAR! +${bonus}`,
         x: 1,
@@ -432,7 +611,26 @@ export class TetrisEngine {
           })
         }
       }
+      this.zoneFloor = 0
+      this.zoneLines = this.zoneFloor // already 0 now
     }
+  }
+
+  // Versus: receive garbage from opponent
+  receiveGarbage(lines) {
+    this.pendingGarbage += lines
+  }
+
+  _applyGarbage(lines) {
+    const gapCol = Math.floor(Math.random() * BOARD_WIDTH)
+    const garbageRows = Array.from({ length: lines }, () => {
+      const row = Array(BOARD_WIDTH).fill('GBG')
+      row[gapCol] = null
+      return row
+    })
+    // Shift board up by `lines` rows, add garbage at bottom
+    this.board = [...this.board.slice(lines), ...garbageRows]
+    this.shake = Math.max(this.shake, 4)
   }
 
   updateParticles(dt) {
@@ -455,6 +653,8 @@ export class TetrisEngine {
 
   getGravity() {
     if (this.zoneActive) return 0.3
+    if (this.mode === GAME_MODE.MASTER) return Math.min(8, 1.2 + this.level * 0.35)
+    if (this.mode === GAME_MODE.BLITZ)  return Math.min(3.5, 0.85 + this.level * 0.22)
     return Math.min(2.5, 0.85 + this.level * 0.15)
   }
 
@@ -497,11 +697,45 @@ export class TetrisEngine {
   }
 
   update(dt, held, actions) {
-    if (this.gameOver) return
-
-    // Clear per-frame event flags
     this.lastClear = null
     this.hardDropped = false
+    this.lockFlash = false
+    this.lastCombo = 0
+    this.lastGarbage = 0
+
+    if (this.gameOver || this.paused) return
+
+    // Elapsed time tracking (Sprint / Blitz)
+    if (this.mode === GAME_MODE.SPRINT || this.mode === GAME_MODE.BLITZ) {
+      this.elapsedTime += dt
+    }
+
+    // Blitz countdown
+    if (this.mode === GAME_MODE.BLITZ) {
+      this.blitzTimer -= dt
+      if (this.blitzTimer <= 0) {
+        this.blitzTimer = 0
+        this.gameOver = true
+        this.gameOverReason = 'timeout'
+        return
+      }
+    }
+
+    // Purify mode: countdown and infection spread
+    if (this.mode === GAME_MODE.PURIFY) {
+      this.purifyTimer -= dt
+      if (this.purifyTimer <= 0) {
+        this.purifyTimer = 0
+        this.gameOver = true
+        this.gameOverReason = 'timeout'
+        return
+      }
+      this.infectionTimer -= dt
+      if (this.infectionTimer <= 0) {
+        this.addInfectionLayer()
+        this.infectionTimer = 10000 + Math.random() * 5000
+      }
+    }
 
     if (actions.hold) this.holdPiece()
     if (actions.rotateCW) this.tryRotate(1)
@@ -522,10 +756,22 @@ export class TetrisEngine {
       if (this.zoneTimer <= 0) this.deactivateZone()
     }
 
-    this.gravityTimer += (dt / 1000) * this.getGravity() * (held.softDrop ? SOFT_DROP_MULTIPLIER : 1)
-    while (this.gravityTimer >= 1) {
-      if (!this.softDrop()) break
-      this.gravityTimer -= 1
+    // 20G mode: piece instantly falls to lowest possible row
+    if (this.mode === GAME_MODE.MASTER && this.level >= 20) {
+      this.current.y = getGhostY(this.board, this.current)
+    } else {
+      this.gravityTimer += (dt / 1000) * this.getGravity() * (held.softDrop ? SOFT_DROP_MULTIPLIER : 1)
+      while (this.gravityTimer >= 1) {
+        if (!this.softDrop()) break
+        this.gravityTimer -= 1
+      }
+    }
+
+    // Reset lock delay cap when piece reaches a new lowest Y
+    if (this.current.y > this.lowestY) {
+      this.lowestY = this.current.y
+      this.lockTimer = 0
+      this.lockResets = 0
     }
 
     if (collides(this.board, this.current, this.current.x, this.current.y + 1)) {
@@ -539,6 +785,10 @@ export class TetrisEngine {
     this.updateParticles(dt)
     this.updateFloatingTexts(dt)
   }
+
+  pause()  { if (!this.gameOver) this.paused = true }
+  resume() { this.paused = false }
+  togglePause() { if (this.paused) this.resume(); else this.pause() }
 
   getState() {
     return {
@@ -555,11 +805,26 @@ export class TetrisEngine {
       floatingTexts: this.floatingTexts,
       shake: this.shake,
       backToBack: this.backToBack,
+      combo: this.combo,
+      lastCombo: this.lastCombo,
+      lockFlash: this.lockFlash,
+      paused: this.paused,
+      elapsedTime: this.elapsedTime,
+      blitzTimer: this.blitzTimer,
+      infectedCols: this.infectedCols,
+      zoneFloor: this.zoneFloor,
+      lastGarbage: this.lastGarbage,
+      pendingGarbage: this.pendingGarbage,
       zoneMeter: this.zoneMeter,
       zoneActive: this.zoneActive,
       zoneTimer: this.zoneTimer,
+      zoneLines: this.zoneLines,
       lastClear: this.lastClear,
       hardDropped: this.hardDropped,
+      mode: this.mode,
+      blocksPurified: this.blocksPurified,
+      purifyTimer: this.purifyTimer,
+      gameOverReason: this.gameOverReason,
     }
   }
 }

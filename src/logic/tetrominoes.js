@@ -58,6 +58,22 @@ export const PIECES = {
       [0, 0, 0],
     ],
   },
+  // Special non-spawnable infected block (used only on the board, not in the bag)
+  INF: {
+    color: '#8b5cf6',
+    matrix: [[1]],
+  },
+  // Zone captured row (rendered as electric cyan floor during Zone)
+  ZONE: {
+    color: '#00e5ff',
+    matrix: [[1]],
+  },
+  // Garbage row sent from opponent in Versus mode
+  GBG: {
+    color: '#888888',
+    matrix: [[1]],
+  },
 }
 
-export const PIECE_SEQUENCE = Object.keys(PIECES)
+// Explicit sequence — does NOT include INF so it never enters the 7-bag
+export const PIECE_SEQUENCE = ['I', 'O', 'T', 'S', 'Z', 'J', 'L']

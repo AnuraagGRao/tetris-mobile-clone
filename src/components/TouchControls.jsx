@@ -1,15 +1,17 @@
 const BUTTONS = [
-  { key: 'left', label: '◀', hold: true },
-  { key: 'right', label: '▶', hold: true },
-  { key: 'softDrop', label: '▼', hold: true },
-  { key: 'hardDrop', label: '⤓' },
-  { key: 'rotateCW', label: '↻' },
-  { key: 'hold', label: 'HOLD' },
+  { key: 'left',      label: '◀',    hold: true },
+  { key: 'right',     label: '▶',    hold: true },
+  { key: 'softDrop',  label: '▼',    hold: true },
+  { key: 'hardDrop',  label: '⤓' },
+  { key: 'rotateCCW', label: '↺' },
+  { key: 'rotateCW',  label: '↻' },
+  { key: 'rotate180', label: '↕' },
+  { key: 'hold',      label: 'HOLD' },
 ]
 
 export default function TouchControls({ onPress, onRelease }) {
   return (
-    <div className="touch-controls">
+    <div className="touch-controls touch-controls-8">
       {BUTTONS.map((button) => (
         <button
           key={button.key}

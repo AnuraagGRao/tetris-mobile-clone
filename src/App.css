@@ -474,7 +474,7 @@ button:focus-visible { outline: 2px solid var(--c-accent); outline-offset: 2px; 
   backdrop-filter: blur(3px);
   border-radius: 4px;
   pointer-events: none;
-  animation: zone-end-fade 2s ease-out forwards;
+  animation: zone-end-fade 4.5s ease-out forwards;
   z-index: 40;
 }
 
@@ -890,8 +890,9 @@ button:focus-visible { outline: 2px solid var(--c-accent); outline-offset: 2px; 
     grid-column: 1 / -1;
   }
 
-  /* util row spans 2 cols, theme spans 2 cols */
+  /* util row: 3-button spans 2 cols, 4-button spans full width; theme spans 2 cols */
   .pt-panel .ls-util   { grid-column: 1 / 3; }
+  .pt-panel .ls-util-4 { grid-column: 1 / -1; }
   .pt-panel .ls-theme  { grid-column: 3 / 5; display: flex; align-items: center; justify-content: center; }
 
   /* mode grid spans full width — 6 buttons already in 2-col layout */
@@ -1387,6 +1388,10 @@ button:focus-visible { outline: 2px solid var(--c-accent); outline-offset: 2px; 
   grid-template-columns: 1fr 1fr 1fr;
 }
 
+.ls-util-4 {
+  grid-template-columns: 1fr 1fr 1fr 1fr;
+}
+
 .ls-util-btn {
   display: flex;
   align-items: center;
@@ -1470,7 +1475,7 @@ button:focus-visible { outline: 2px solid var(--c-accent); outline-offset: 2px; 
 
 @keyframes zone-end-fade {
   0%  { opacity: 1; }
-  60% { opacity: 1; }
+  70% { opacity: 1; }
   100% { opacity: 0; }
 }
 
@@ -1734,3 +1739,112 @@ button:focus-visible { outline: 2px solid var(--c-accent); outline-offset: 2px; 
   letter-spacing: 0.06em;
 }
 .about-stack-dot { opacity: 0.4; }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   PWA STANDALONE FULLSCREEN (portrait only: hide bottom panel)
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+@media all and (display-mode: standalone) and (orientation: portrait) {
+  .pt-panel { display: none !important; }
+  .mobile-canvas-wrap {
+    /* fill the freed space */
+    flex: 1 1 auto;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   SETTINGS PAGE
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.settings-modal {
+  max-width: 360px;
+}
+
+.settings-title {
+  font-size: 1.2rem;
+  font-weight: 900;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #fff;
+  text-shadow: 0 0 14px var(--c-accent);
+  text-align: center;
+  padding-top: 0.25rem;
+}
+
+.settings-section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  background: var(--c-glass);
+  border: 1px solid var(--c-border2);
+  border-radius: 12px;
+  padding: 0.75rem 0.9rem;
+}
+
+.settings-section-title {
+  font-size: 0.65rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--c-muted);
+  margin-bottom: 0.1rem;
+}
+
+.settings-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+}
+
+.settings-label {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--c-text);
+  flex-shrink: 0;
+}
+
+.settings-val {
+  font-size: 0.76rem;
+  font-weight: 700;
+  color: var(--c-accent);
+  margin-left: 0.3rem;
+}
+
+.settings-slider-wrap {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex: 1;
+  min-width: 0;
+}
+
+.settings-slider {
+  flex: 1;
+  accent-color: var(--c-accent);
+  height: 3px;
+  min-width: 0;
+}
+
+.settings-toggle {
+  padding: 0.28rem 0.85rem;
+  border-radius: 8px;
+  border: 1px solid var(--c-border2);
+  background: rgba(18, 22, 46, 0.7);
+  color: var(--c-muted);
+  font-family: inherit;
+  font-size: 0.75rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  cursor: pointer;
+  transition: all 0.15s;
+  flex-shrink: 0;
+}
+
+.settings-toggle.on {
+  border-color: var(--c-accent);
+  color: var(--c-accent);
+  background: rgba(0, 229, 255, 0.1);
+  text-shadow: 0 0 8px var(--c-accent);
+}
+

@@ -5,6 +5,7 @@ import GameCanvas from './components/GameCanvas'
 import TouchControls from './components/TouchControls'
 import ThemeSwitcher from './components/ThemeSwitcher'
 import AboutPage from './components/AboutPage'
+import SettingsPage from './components/SettingsPage'
 import { useTheme } from './contexts/ThemeContext'
 import { MusicManager } from './audio/musicManager'
 import {
@@ -164,11 +165,41 @@ const playComboSFX = (c) => {
 
 const playZenResetSFX = () => arp([784, 880, 1047, 1319], 0.20, 0.04, 'sine')
 
+const playHoldSFX = () => {
+  playNote(660, 0.045, 0.038, 'triangle')
+  playNote(990, 0.035, 0.028, 'triangle', 0.018)
+}
+
+const playZoneMeterMilestoneSFX = (tier) => {
+  // tier: 1 = 50%, 2 = 75%
+  if (tier === 2) {
+    playNote(880, 0.07, 0.08, 'triangle')
+    playNote(1320, 0.05, 0.06, 'triangle', 0.03)
+  } else {
+    playNote(660, 0.06, 0.06, 'triangle')
+  }
+}
+
+const playLineClearHaptic = (lines) => {
+  if (lines >= 4) return [20, 5, 20, 5, 20, 5, 60]
+  if (lines === 3) return [15, 5, 15, 5, 15]
+  if (lines === 2) return [12, 5, 12]
+  return [10]
+}
+
 const playCountdownTickSFX = (second) => {
   // Rising pitch + urgency as it counts down to 1
   const freq = 660 + (10 - second) * 55
   playNote(freq, 0.07, 0.12, 'square')
   if (second <= 3) playNote(freq * 1.5, 0.05, 0.06, 'sine', 0.028)
+}
+
+// ─── Config / settings storage ───────────────────────────────────────────────
+const CONFIG_KEY = 'tetris-config'
+const DEFAULT_CONFIG = { sfxEnabled: true, hapticEnabled: true, musicVolume: 1.0, das: 110, arr: 25 }
+const loadConfig = () => {
+  try { return { ...DEFAULT_CONFIG, ...JSON.parse(localStorage.getItem(CONFIG_KEY) ?? '{}') } }
+  catch (e) { console.warn('Failed to load config:', e); return { ...DEFAULT_CONFIG } }
 }
 
 // ─── High-score storage ───────────────────────────────────────────────────────
@@ -227,7 +258,7 @@ export default function App() {
 
   const [state,  setState]  = useState(() => engine.getState())
   const [state2, setState2] = useState(() => engine2.getState())
-  const [settings, setSettings] = useState({ das: 110, arr: 25 })
+  const [config, setConfig] = useState(loadConfig)
   const [gameMode, setGameMode]   = useState(GAME_MODE.NORMAL)
   const [purifyDifficulty, setPurifyDifficulty] = useState('normal')
   const [botDifficulty, setBotDifficulty]       = useState('medium')
@@ -239,6 +270,7 @@ export default function App() {
   const [installPrompt, setInstallPrompt] = useState(null)
   const [showInstallBanner, setShowInstallBanner] = useState(false)
   const [showAbout, setShowAbout] = useState(false)
+  const [showSettings, setShowSettings] = useState(false)
   const checkMobile = () => window.innerWidth < 768 || (window.innerHeight < 600 && ('ontouchstart' in window || navigator.maxTouchPoints > 0))
   const checkLandscape = () => window.innerHeight < 600 && window.innerWidth > window.innerHeight && ('ontouchstart' in window || navigator.maxTouchPoints > 0)
   const [isMobile, setIsMobile]       = useState(checkMobile)
@@ -274,9 +306,15 @@ export default function App() {
   const zenResettingRef = useRef(false)
   const prevBlitzSecRef  = useRef(null)
   const prevPurifySecRef = useRef(null)
+  const configRef         = useRef(config)
+  useEffect(() => { configRef.current = config }, [config])
 
-  useEffect(() => { engine.setSettings(settings) },  [engine, settings])
-  useEffect(() => { engine2.setSettings(settings) }, [engine2, settings])
+  // Persist config changes
+  useEffect(() => { localStorage.setItem(CONFIG_KEY, JSON.stringify(config)) }, [config])
+
+  // Sync engine DAS/ARR from config
+  useEffect(() => { engine.setSettings({ das: config.das, arr: config.arr }) },  [engine, config.das, config.arr])
+  useEffect(() => { engine2.setSettings({ das: config.das, arr: config.arr }) }, [engine2, config.das, config.arr])
 
   // Resize → isMobile
   useEffect(() => {
@@ -427,28 +465,63 @@ export default function App() {
         if (ns2.lastGarbage > 0) engine.receiveGarbage(ns2.lastGarbage)
       }
 
-      if (ns.hardDropped) playHardDropSFX()
-      else if (ns.pieceLocked) playLockSFX()
-      if (ns.lastCombo > 0) playComboSFX(ns.lastCombo)
+      const cfg = configRef.current
+      const sfxOn = cfg.sfxEnabled
+      const hapticOn = cfg.hapticEnabled
+      const doVibrate = (pattern) => { if (hapticOn) navigator.vibrate?.(pattern) }
+
+      if (ns.hardDropped) {
+        if (sfxOn) playHardDropSFX()
+      } else if (ns.pieceLocked) {
+        if (sfxOn) playLockSFX()
+        doVibrate(6)
+      }
+      if (ns.pieceHeld) {
+        if (sfxOn) playHoldSFX()
+        doVibrate(8)
+      }
+      if (ns.lastCombo > 0 && sfxOn) playComboSFX(ns.lastCombo)
       if (ns.lastClear) {
         const { spinType, lines, isAllClear } = ns.lastClear
-        if (isAllClear) playAllClearSFX()
-        else if (spinType === 'tSpin' || spinType === 'allSpin') playTSpinSFX()
-        else if (lines === 4) playTetrisSFX()
-        else if (lines > 0) playLineClearSFX()
+        if (isAllClear) {
+          if (sfxOn) playAllClearSFX()
+          doVibrate([20, 5, 20, 5, 20, 5, 60])
+        } else if (spinType === 'tSpin' || spinType === 'allSpin') {
+          if (sfxOn) playTSpinSFX()
+          doVibrate([10, 10, 30])
+        } else if (lines === 4) {
+          if (sfxOn) playTetrisSFX()
+          doVibrate([20, 5, 20, 5, 20, 5, 60])
+        } else if (lines > 0) {
+          if (sfxOn) playLineClearSFX()
+          doVibrate(playLineClearHaptic(lines))
+        }
       }
       // B2B streak start
-      if (ns.backToBack && !prevBackToBackRef.current) playB2BSFX()
+      if (ns.backToBack && !prevBackToBackRef.current && sfxOn) playB2BSFX()
       prevBackToBackRef.current = ns.backToBack
       // Level up
-      if (ns.level > prevLevelRef.current) playLevelUpSFX()
+      if (ns.level > prevLevelRef.current && sfxOn) playLevelUpSFX()
       prevLevelRef.current = ns.level
-      // Zone ready notification (when meter hits 100 for the first time)
-      if (ns.zoneMeter >= 100 && prevZoneMeterRef.current < 100) musicManager?.playZoneReady?.()
+      // Zone meter milestones (50%, 75%) + zone ready (100%)
+      const prevMeter = prevZoneMeterRef.current
+      if (!ns.zoneActive) {
+        if (ns.zoneMeter >= 100 && prevMeter < 100) {
+          musicManager?.playZoneReady?.()
+          doVibrate([10, 10, 10, 10, 20])
+        } else if (ns.zoneMeter >= 75 && prevMeter < 75) {
+          if (sfxOn) playZoneMeterMilestoneSFX(2)
+          doVibrate([8, 8, 15])
+        } else if (ns.zoneMeter >= 50 && prevMeter < 50) {
+          if (sfxOn) playZoneMeterMilestoneSFX(1)
+          doVibrate(10)
+        }
+      }
       prevZoneMeterRef.current = ns.zoneMeter
       // Zone end — play fanfare when zone deactivates
       if (prevZoneActiveRef.current && !ns.zoneActive && ns.zoneEndResult) {
         musicManager?.playZoneEnd?.(ns.zoneEndResult.lines ?? 0)
+        doVibrate([0, 80, 30, 80, 30, 120])
       }
       // Zone FX: toggle low-pass and ducking on BGM when Zone activates/deactivates
       if (!prevZoneActiveRef.current && ns.zoneActive) {
@@ -464,7 +537,7 @@ export default function App() {
         if (ns.mode === GAME_MODE.BLITZ && ns.blitzTimer > 0 && ns.blitzTimer <= 10000) {
           const sec = Math.ceil(ns.blitzTimer / 1000)
           if (prevBlitzSecRef.current !== null && sec !== prevBlitzSecRef.current) {
-            playCountdownTickSFX(sec)
+            if (sfxOn) playCountdownTickSFX(sec)
           }
           prevBlitzSecRef.current = sec
         } else {
@@ -473,7 +546,7 @@ export default function App() {
         if (ns.mode === GAME_MODE.PURIFY && ns.purifyTimer > 0 && ns.purifyTimer <= 10000) {
           const sec = Math.ceil(ns.purifyTimer / 1000)
           if (prevPurifySecRef.current !== null && sec !== prevPurifySecRef.current) {
-            playCountdownTickSFX(sec)
+            if (sfxOn) playCountdownTickSFX(sec)
           }
           prevPurifySecRef.current = sec
         } else {
@@ -482,7 +555,8 @@ export default function App() {
       }
 
       if (ns.gameOver && !prevGameOverRef.current && gameModeRef.current !== GAME_MODE.ZEN) {
-        playGameOverSFX()
+        if (sfxOn) playGameOverSFX()
+        doVibrate([100, 50, 100, 50, 100])
         if (musicOnRef.current) { musicManager?.stop(); musicOnRef.current = false; setMusicOn(false) }
         const hs = loadHighScores(), key = gameModeRef.current
         if (!hs[key] || ns.score > hs[key]) {
@@ -512,25 +586,29 @@ export default function App() {
   // ─── Keyboard ──────────────────────────────────────────────────────────────
   useEffect(() => {
     const down = (ev) => {
+      const sfxOn = configRef.current.sfxEnabled
       if (!isMobileRef.current && gameModeRef.current === GAME_MODE.VERSUS && !botEnabledRef.current && P2_BINDINGS[ev.code]) {
         if (ev.repeat) return
         const b = P2_BINDINGS[ev.code]; ev.preventDefault()
         if (b.held) held2Ref.current[b.held] = true
-        if (b.action) { action2Ref.current[b.action] = true; if (b.action.startsWith('rotate')) playRotateSFX() }
+        if (b.action) { action2Ref.current[b.action] = true; if (b.action.startsWith('rotate') && sfxOn) playRotateSFX() }
         return
       }
       const b = KEY_BINDINGS[ev.code]; if (!b) return
       ev.preventDefault(); if (ev.repeat) return
       if (b.held) {
         heldRef.current[b.held] = true
-        if (b.held === 'left' || b.held === 'right') playMoveSFX()
+        if ((b.held === 'left' || b.held === 'right') && sfxOn) playMoveSFX()
       }
       if (b.action) {
         if (countdownActiveRef.current && b.action !== 'pause') return
         actionRef.current[b.action] = true
-        if (b.action === 'rotateCW' || b.action === 'rotateCCW' || b.action === 'rotate180') playRotateSFX()
-        if (b.action === 'activateZone') playZoneActivateSFX()
-        if (b.action === 'hardDrop') playHardDropSFX()
+        if ((b.action === 'rotateCW' || b.action === 'rotateCCW' || b.action === 'rotate180') && sfxOn) playRotateSFX()
+        if (b.action === 'activateZone') {
+          if (sfxOn) playZoneActivateSFX()
+          if (configRef.current.hapticEnabled) navigator.vibrate?.([20, 10, 40])
+        }
+        if (b.action === 'hardDrop' && sfxOn) playHardDropSFX()
         if (b.action === 'pause') handlePauseToggle()
       }
     }
@@ -550,19 +628,30 @@ export default function App() {
   const triggerAction = (action) => {
     if (countdownActiveRef.current) return
     actionRef.current[action] = true
-    if (action === 'rotateCW' || action === 'rotateCCW' || action === 'rotate180') playRotateSFX()
-    else if (action === 'hardDrop') playHardDropSFX()
-    else if (action === 'activateZone') playZoneActivateSFX()
+    const sfxOn = configRef.current.sfxEnabled
+    const hapticOn = configRef.current.hapticEnabled
+    if (action === 'rotateCW' || action === 'rotateCCW' || action === 'rotate180') {
+      if (sfxOn) playRotateSFX()
+      if (hapticOn) navigator.vibrate?.(10)
+    } else if (action === 'hardDrop') {
+      if (sfxOn) playHardDropSFX()
+      if (hapticOn) navigator.vibrate?.([15, 30, 15])
+    } else if (action === 'activateZone') {
+      if (sfxOn) playZoneActivateSFX()
+      if (hapticOn) navigator.vibrate?.([20, 10, 40])
+    } else if (action === 'hold') {
+      if (hapticOn) navigator.vibrate?.(8)
+    }
   }
   const handlePress   = (key, hold) => {
+    const sfxOn = configRef.current.sfxEnabled
+    const hapticOn = configRef.current.hapticEnabled
     if (hold) {
       heldRef.current[key] = true
-      if (key === 'left' || key === 'right') { playMoveSFX(); navigator.vibrate?.(8) }
-      else if (key === 'softDrop') navigator.vibrate?.(5)
+      if (key === 'left' || key === 'right') { if (sfxOn) playMoveSFX(); if (hapticOn) navigator.vibrate?.(8) }
+      else if (key === 'softDrop' && hapticOn) navigator.vibrate?.(5)
     } else {
       triggerAction(key)
-      if (key === 'rotateCW' || key === 'rotateCCW' || key === 'rotate180') navigator.vibrate?.(10)
-      else if (key === 'hardDrop') navigator.vibrate?.([15, 30, 15])
     }
   }
   const handleRelease = (key, hold) => { if (hold) heldRef.current[key] = false }
@@ -575,8 +664,19 @@ export default function App() {
     if (dir === 'left' || dir === 'right') heldRef.current[dir] = false
     else if (dir === 'down') heldRef.current.softDrop = false
   }
-  const handleHardDrop = () => { if (!countdownActiveRef.current) { heldRef.current.softDrop = false; actionRef.current.hardDrop = true; playHardDropSFX(); navigator.vibrate?.([15, 30, 15]) } }
-  const handleZoneActivate = () => { actionRef.current.activateZone = true; playZoneActivateSFX() }
+  const handleHardDrop = () => {
+    if (!countdownActiveRef.current) {
+      heldRef.current.softDrop = false
+      actionRef.current.hardDrop = true
+      if (configRef.current.sfxEnabled) playHardDropSFX()
+      if (configRef.current.hapticEnabled) navigator.vibrate?.([15, 30, 15])
+    }
+  }
+  const handleZoneActivate = () => {
+    actionRef.current.activateZone = true
+    if (configRef.current.sfxEnabled) playZoneActivateSFX()
+    if (configRef.current.hapticEnabled) navigator.vibrate?.([20, 10, 40])
+  }
 
   // ─── Gamepad ──────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -632,9 +732,13 @@ export default function App() {
                 else { if (musicOnRef.current) musicManager?.start(s.mode === GAME_MODE.PURIFY, s.mode === GAME_MODE.ZEN) }
               } else if (!countdownActiveRef.current) {
                 actionRef.current[action] = true
-                if (action === 'rotateCW' || action === 'rotateCCW' || action === 'rotate180') playRotateSFX()
-                else if (action === 'hardDrop') playHardDropSFX()
-                else if (action === 'activateZone') playZoneActivateSFX()
+                const sfxOn = configRef.current.sfxEnabled
+                if ((action === 'rotateCW' || action === 'rotateCCW' || action === 'rotate180') && sfxOn) playRotateSFX()
+                else if (action === 'hardDrop' && sfxOn) playHardDropSFX()
+                else if (action === 'activateZone') {
+                  if (sfxOn) playZoneActivateSFX()
+                  if (configRef.current.hapticEnabled) navigator.vibrate?.([20, 10, 40])
+                }
               }
             }
             prev[bi] = pressed
@@ -661,12 +765,22 @@ export default function App() {
   const toggleMusic = () => {
     getAudioCtx(); if (!musicManager) return
     const doToggle = () => {
-      if (musicOnRef.current) { musicManager.stop(); musicOnRef.current = false; setMusicOn(false) }
-      else { musicManager.start(state.mode === GAME_MODE.PURIFY, state.mode === GAME_MODE.ZEN); musicOnRef.current = true; setMusicOn(true) }
+      if (musicOnRef.current) {
+        musicManager.stop(); musicOnRef.current = false; setMusicOn(false)
+      } else {
+        musicManager.start(state.mode === GAME_MODE.PURIFY, state.mode === GAME_MODE.ZEN)
+        musicManager.setVolume(configRef.current.musicVolume)
+        musicOnRef.current = true; setMusicOn(true)
+      }
     }
     const ctx = sharedAudioContext
     if (ctx?.state === 'suspended') ctx.resume().then(doToggle); else doToggle()
   }
+
+  // Sync music volume when config changes
+  useEffect(() => {
+    if (musicOnRef.current) musicManager?.setVolume?.(config.musicVolume)
+  }, [config.musicVolume])
 
   const setBotDiff = (d) => { setBotDifficulty(d); botDiffRef.current = d; botRef.current?.setDifficulty(d) }
   const setPurifyDiff = (d) => { setPurifyDifficulty(d); purifyDiffRef.current = d }
@@ -725,10 +839,10 @@ export default function App() {
     <AnimatePresence>
       {s.zoneEndResult && (
         <motion.div className="zone-end-overlay"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
+          initial={{ opacity: 0, scale: 0.92 }}
+          animate={{ opacity: 1, scale: 1 }}
           exit={{ opacity: 0 }}
-          transition={{ duration: 0.25 }}>
+          transition={{ duration: 0.35 }}>
           <div className="zone-end-number">{s.zoneEndResult.lines}</div>
           <div className="zone-end-label">ZONE LINES!</div>
           <div className="zone-end-bonus">+{s.zoneEndResult.bonus.toLocaleString()}</div>
@@ -737,7 +851,7 @@ export default function App() {
               <motion.div key={i}
                 initial={{ scaleX: 1, opacity: 0.9 }}
                 animate={{ scaleX: 0, opacity: 0 }}
-                transition={{ delay: 0.08 + i * 0.04, duration: 0.35, ease: 'easeIn' }}
+                transition={{ delay: 0.3 + i * 0.1, duration: 0.7, ease: 'easeIn' }}
                 style={{ height: 6, background: 'linear-gradient(90deg,#fff,#00cfff)', borderRadius: 4, filter: 'drop-shadow(0 0 6px #00cfff)' }}
               />
             ))}
@@ -904,16 +1018,8 @@ export default function App() {
         </div>
       )}
 
-      <div className="settings-block">
-        <div className="flank-label" style={{ marginTop: '0.25rem' }}>Controls</div>
-        <label>DAS <span className="val">{settings.das}ms</span>
-          <input type="range" min="30" max="220" step="5" value={settings.das}
-            onChange={e => setSettings(p => ({ ...p, das: +e.target.value }))} />
-        </label>
-        <label>ARR <span className="val">{settings.arr}ms</span>
-          <input type="range" min="0" max="80" step="5" value={settings.arr}
-            onChange={e => setSettings(p => ({ ...p, arr: +e.target.value }))} />
-        </label>
+      <div style={{ marginTop: '0.5rem' }}>
+        <button type="button" className="icon-btn" style={{ width: '100%', justifyContent: 'center', fontSize: '0.72rem' }} onClick={() => setShowSettings(true)}>⚙ Settings</button>
       </div>
     </div>
   )
@@ -955,6 +1061,7 @@ export default function App() {
             🔍 {Math.round(zoom * 100)}%
           </button>
           <ThemeSwitcher />
+          <button type="button" className="icon-btn" onClick={() => setShowSettings(true)} title="Settings">⚙ Settings</button>
           <button type="button" className="icon-btn" onClick={() => setShowAbout(true)} title="About">ℹ About</button>
         </div>
       </header>
@@ -1166,6 +1273,9 @@ export default function App() {
           <button type="button" className="ls-util-btn" onClick={() => startGame(gameMode)}>↺</button>
           <button type="button" className="ls-util-btn" onClick={() => setShowAbout(true)}>ℹ</button>
         </div>
+        <div className="ls-util ls-util-3">
+          <button type="button" className="ls-util-btn" onClick={() => setShowSettings(true)}>⚙</button>
+        </div>
         <div className="ls-theme"><ThemeSwitcher /></div>
 
         {/* mode selector */}
@@ -1266,10 +1376,11 @@ export default function App() {
         )}
 
         {/* Utilities */}
-        <div className="ls-util ls-util-3">
+        <div className="ls-util ls-util-4">
           <button type="button" className={`ls-util-btn${musicOn ? ' active' : ''}`} onClick={toggleMusic}>🎵</button>
           <button type="button" className="ls-util-btn" onClick={() => startGame(gameMode)}>↺</button>
           <button type="button" className="ls-util-btn" onClick={() => setShowAbout(true)}>ℹ</button>
+          <button type="button" className="ls-util-btn" onClick={() => setShowSettings(true)}>⚙</button>
         </div>
         <div className="ls-theme"><ThemeSwitcher /></div>
 
@@ -1407,6 +1518,13 @@ export default function App() {
           onClose={() => setShowAbout(false)}
           installPrompt={installPrompt}
           onInstall={handleInstallFromAbout}
+        />
+      )}
+      {showSettings && (
+        <SettingsPage
+          config={config}
+          onConfig={setConfig}
+          onClose={() => setShowSettings(false)}
         />
       )}
     </div>

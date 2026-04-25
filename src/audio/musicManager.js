@@ -96,8 +96,12 @@ export class MusicManager {
     this.lpf.type = 'lowpass'
     this.lpf.frequency.value = 18000 // wide open by default
     this.lpf.Q.value = 0.7
+    // Separate volume gain node (user-controlled)
+    this.volumeGain = audioCtx.createGain()
+    this.volumeGain.gain.value = 1.0
     this.masterGain.connect(this.lpf)
-    this.lpf.connect(audioCtx.destination)
+    this.lpf.connect(this.volumeGain)
+    this.volumeGain.connect(audioCtx.destination)
 
     // Pre-generate a half-second white-noise buffer (reused for every drum hit)
     const noiseLen = Math.floor(audioCtx.sampleRate * 0.5)
@@ -346,6 +350,11 @@ export class MusicManager {
 
   setPurifyMode(on) { this.purifyMode = on }
   setZenMode(on)    { this.zenMode    = on }
+
+  setVolume(vol) {
+    const v = Math.max(0, Math.min(1, vol))
+    this.volumeGain.gain.setTargetAtTime(v, this.ctx.currentTime, 0.05)
+  }
 
   setLevel(level) {
     this.levelTier = level >= 10 ? 2 : level >= 5 ? 1 : 0

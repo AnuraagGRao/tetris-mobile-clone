@@ -21,10 +21,10 @@ const PARTICLES_PER_CELL = 3
 
 // Zone duration (ms) based on meter fill % at activation
 const zoneDurationFromMeter = (meter) => {
-  if (meter >= 100) return 25000
-  if (meter >= 75)  return 15000
-  if (meter >= 50)  return 10000
-  return 5000
+  if (meter >= 100) return 42000
+  if (meter >= 75)  return 28000
+  if (meter >= 50)  return 18000
+  return 10000
 }
 // Minimum meter to allow activation
 export const ZONE_MIN_METER = 25
@@ -252,6 +252,7 @@ export class TetrisEngine {
     this.lastClear = null
     this.hardDropped = false
     this.pieceLocked = false
+    this.pieceHeld = false
     this.b2bCount = 0
     this.blocksPurified = 0
     this.purifyTimer = PURIFY_DURATION_MS
@@ -337,6 +338,7 @@ export class TetrisEngine {
     this.canHold = false
     this.lockTimer = 0
     this.lastActionWasRotation = false
+    this.pieceHeld = true
     if (collides(this.board, this.current, this.current.x, this.current.y)) {
       if (this.mode === GAME_MODE.ZEN && this._topOutHandler) {
         this._topOutHandler()
@@ -689,7 +691,7 @@ export class TetrisEngine {
       this.score += bonus
       this.shake = Math.min(15, 4 + this.zoneFloor)
       // Store result for the big overlay in the renderer
-      this.zoneEndResult = { lines: this.zoneFloor, bonus, ttl: 2000 }
+      this.zoneEndResult = { lines: this.zoneFloor, bonus, ttl: 4500 }
       for (let y = 0; y < BOARD_HEIGHT; y += 3) {
         for (let x = 0; x < BOARD_WIDTH; x += 2) {
           const hue = Math.floor(Math.random() * 360)
@@ -790,6 +792,7 @@ export class TetrisEngine {
     this.lastClear = null
     this.hardDropped = false
     this.pieceLocked = false
+    this.pieceHeld = false
     this.lockFlash = false
     this.lastCombo = 0
     this.lastGarbage = 0
@@ -942,6 +945,7 @@ export class TetrisEngine {
       lastClear: this.lastClear,
       hardDropped: this.hardDropped,
       pieceLocked: this.pieceLocked,
+      pieceHeld: this.pieceHeld,
       mode: this.mode,
       blocksPurified: this.blocksPurified,
       purifyTimer: this.purifyTimer,

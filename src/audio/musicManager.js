@@ -4,6 +4,8 @@
 const BPM = 140
 const BASE_STEP = 60 / BPM / 4 // 16th-note duration in seconds at 140 BPM
 const LOOKAHEAD = 0.12 // schedule this many seconds ahead
+// BPM increase rate per game level (6% per level, capped at 2× via setLevel)
+const BPM_SCALE_FACTOR = 0.06
 
 // ─── Frequency table (A-minor pentatonic + extras) ───────────────────────────
 const HZ = {
@@ -359,8 +361,8 @@ export class MusicManager {
 
   setLevel(level) {
     this.levelTier = level >= 10 ? 2 : level >= 5 ? 1 : 0
-    // Dynamic BPM: playback rate increases 6% per level, capped at 2.0×
-    const rate = Math.min(1.0 + (level - 1) * 0.06, 2.0)
+    // Dynamic BPM: playback rate increases BPM_SCALE_FACTOR per level, capped at 2.0×
+    const rate = Math.min(1.0 + (level - 1) * BPM_SCALE_FACTOR, 2.0)
     this._step = BASE_STEP / rate
     // Subtly boost master volume at higher levels for energy
     if (this.playing) {

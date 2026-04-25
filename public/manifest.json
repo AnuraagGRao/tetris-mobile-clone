@@ -2,7 +2,7 @@
   "name": "Tetris Mobile Clone",
   "short_name": "Tetris",
   "description": "Mobile-first PWA Tetris clone with modern guideline mechanics.",
-  "start_url": "/",
+  "start_url": ".",
   "display": "standalone",
   "background_color": "#05060d",
   "theme_color": "#05060d",

@@ -1,0 +1,180 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   THEME OVERRIDES
+   Each block redefines CSS tokens for a visual theme.
+   The default theme (Neon Glass) lives in :root in App.css.
+   Switch themes by setting data-theme on <html>.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ── Nebula Drift ─────────────────────────────────────────────────────────── */
+[data-theme="nebula"] {
+  --c-bg:      #0b0b1a;
+  --c-bg2:     #120a2e;
+  --c-panel:   rgba(20, 8, 45, 0.88);
+  --c-border:  rgba(138, 92, 255, 0.22);
+  --c-border2: rgba(138, 92, 255, 0.40);
+  --c-text:    #e8d8ff;
+  --c-muted:   rgba(220, 200, 255, 0.50);
+  --c-accent:  #8a5cff;
+  --c-accent2: #ff7edb;
+  --c-warn:    #e879f9;
+  --c-danger:  #f87171;
+  --c-zone:    #00e5ff;
+  --c-purify:  #cc7cf2;
+  --c-glass:   rgba(138, 92, 255, 0.08);
+  --c-glow:    rgba(138, 92, 255, 0.45);
+  --c-grid:    rgba(138, 92, 255, 0.07);
+}
+
+[data-theme="nebula"] body {
+  background-image:
+    radial-gradient(ellipse at 20% 40%, rgba(90, 40, 180, 0.12) 0%, transparent 60%),
+    radial-gradient(ellipse at 80% 10%, rgba(255, 126, 219, 0.08) 0%, transparent 50%),
+    repeating-linear-gradient(
+      0deg,
+      rgba(0,0,0,0.04) 0px, rgba(0,0,0,0.04) 1px,
+      transparent 1px, transparent 4px
+    );
+}
+
+/* ── Arcade Voltage ───────────────────────────────────────────────────────── */
+[data-theme="arcade"] {
+  --c-bg:      #000000;
+  --c-bg2:     #080808;
+  --c-panel:   rgba(0, 0, 0, 0.94);
+  --c-border:  rgba(0, 240, 255, 0.30);
+  --c-border2: rgba(0, 240, 255, 0.55);
+  --c-text:    #e0ffff;
+  --c-muted:   rgba(0, 240, 255, 0.55);
+  --c-accent:  #00f0ff;
+  --c-accent2: #39ff14;
+  --c-warn:    #ffd400;
+  --c-danger:  #ff003c;
+  --c-zone:    #39ff14;
+  --c-purify:  #ff003c;
+  --c-glass:   rgba(0, 240, 255, 0.05);
+  --c-glow:    rgba(0, 240, 255, 0.65);
+  --c-grid:    rgba(0, 240, 255, 0.12);
+}
+
+[data-theme="arcade"] body {
+  background-image:
+    repeating-linear-gradient(
+      0deg,
+      rgba(0, 240, 255, 0.025) 0px, rgba(0, 240, 255, 0.025) 1px,
+      transparent 1px, transparent 3px
+    );
+}
+
+[data-theme="arcade"] .site-header,
+[data-theme="arcade"] .flank,
+[data-theme="arcade"] .game-area {
+  border-radius: 2px;
+}
+
+/* ── Frostbyte ────────────────────────────────────────────────────────────── */
+[data-theme="frost"] {
+  --c-bg:      #0f172a;
+  --c-bg2:     #162040;
+  --c-panel:   rgba(15, 23, 42, 0.92);
+  --c-border:  rgba(125, 211, 252, 0.20);
+  --c-border2: rgba(125, 211, 252, 0.42);
+  --c-text:    #e5f3ff;
+  --c-muted:   rgba(229, 243, 255, 0.52);
+  --c-accent:  #7dd3fc;
+  --c-accent2: #bae6fd;
+  --c-warn:    #fbbf24;
+  --c-danger:  #f87171;
+  --c-zone:    #7dd3fc;
+  --c-purify:  #a5b4fc;
+  --c-glass:   rgba(125, 211, 252, 0.08);
+  --c-glow:    rgba(125, 211, 252, 0.38);
+  --c-grid:    rgba(125, 211, 252, 0.07);
+}
+
+[data-theme="frost"] body {
+  background-image:
+    radial-gradient(ellipse at 50% 0%, rgba(125, 211, 252, 0.08) 0%, transparent 55%),
+    repeating-linear-gradient(
+      0deg,
+      rgba(255,255,255,0.02) 0px, rgba(255,255,255,0.02) 1px,
+      transparent 1px, transparent 4px
+    );
+}
+
+/* ── Cyber Grid ───────────────────────────────────────────────────────────── */
+[data-theme="cyber"] {
+  --c-bg:      #0a0015;
+  --c-bg2:     #12001f;
+  --c-panel:   rgba(10, 0, 21, 0.92);
+  --c-border:  rgba(255, 45, 154, 0.22);
+  --c-border2: rgba(0, 240, 255, 0.38);
+  --c-text:    #ffe8ff;
+  --c-muted:   rgba(255, 200, 255, 0.48);
+  --c-accent:  #ff2d9a;
+  --c-accent2: #00f0ff;
+  --c-warn:    #ffd400;
+  --c-danger:  #ff2d9a;
+  --c-zone:    #ffd400;
+  --c-purify:  #ff2d9a;
+  --c-glass:   rgba(255, 45, 154, 0.07);
+  --c-glow:    rgba(255, 45, 154, 0.48);
+  --c-grid:    rgba(0, 240, 255, 0.09);
+}
+
+[data-theme="cyber"] body {
+  background-image:
+    linear-gradient(to bottom, transparent 85%, rgba(255, 45, 154, 0.04) 100%),
+    repeating-linear-gradient(
+      90deg,
+      rgba(0, 240, 255, 0.02) 0px, rgba(0, 240, 255, 0.02) 1px,
+      transparent 1px, transparent 40px
+    ),
+    repeating-linear-gradient(
+      0deg,
+      rgba(0, 240, 255, 0.02) 0px, rgba(0, 240, 255, 0.02) 1px,
+      transparent 1px, transparent 40px
+    );
+}
+
+/* ── Zen ──────────────────────────────────────────────────────────────────── */
+[data-theme="zen"] {
+  --c-bg:      #18181a;
+  --c-bg2:     #1e1e21;
+  --c-panel:   rgba(22, 22, 26, 0.88);
+  --c-border:  rgba(107, 158, 138, 0.16);
+  --c-border2: rgba(107, 158, 138, 0.28);
+  --c-text:    #d4d8d6;
+  --c-muted:   rgba(200, 210, 205, 0.52);
+  --c-accent:  #6b9e8a;
+  --c-accent2: #9b9b9b;
+  --c-warn:    #c4a882;
+  --c-danger:  #b07a7a;
+  --c-zone:    #6b9e8a;
+  --c-purify:  #9b9b9b;
+  --c-glass:   rgba(107, 158, 138, 0.06);
+  --c-glow:    rgba(107, 158, 138, 0.22);
+  --c-grid:    rgba(107, 158, 138, 0.05);
+}
+
+[data-theme="zen"] body {
+  background-image:
+    radial-gradient(ellipse at 50% 50%, rgba(107, 158, 138, 0.05) 0%, transparent 65%),
+    repeating-linear-gradient(
+      0deg,
+      rgba(0,0,0,0.025) 0px, rgba(0,0,0,0.025) 1px,
+      transparent 1px, transparent 5px
+    );
+}
+
+/* Zen: suppress strong glows for a calm look */
+[data-theme="zen"] .zone-meter-fill.zone-active,
+[data-theme="zen"] .mobile-zone-fill.zone-active {
+  box-shadow: none;
+  animation: none;
+  background: linear-gradient(90deg, var(--c-accent), var(--c-accent2));
+}
+
+[data-theme="zen"] .b2b-badge,
+[data-theme="zen"] .combo-display .combo-number {
+  text-shadow: none;
+}

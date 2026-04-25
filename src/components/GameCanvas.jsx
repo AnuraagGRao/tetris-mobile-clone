@@ -172,26 +172,31 @@ export default function GameCanvas({ state, onTap, onDragBegin, onDragEnd, onHar
     if (state.floatingTexts) {
       state.floatingTexts.forEach((ft) => {
         const alpha = Math.max(0, ft.ttl / ft.maxTtl)
-        const fx = ft.x * CELL_SIZE
         const fy = ft.y * CELL_SIZE
         ctx.save()
         ctx.globalAlpha = alpha
-        ctx.font = 'bold 13px monospace'
-        ctx.fillStyle = '#ffffff'
-        ctx.shadowColor = '#aa66ff'
-        ctx.shadowBlur = 18
-        ctx.fillText(ft.text, Math.max(2, Math.min(fx, canvas.width - 130)), Math.max(12, fy))
+        if (ft.big) {
+          // Large centred label for Tetris / T-Spin Double+ / B2B clears
+          const scale = 0.7 + 0.3 * (ft.ttl / ft.maxTtl)   // pops in then fades
+          ctx.font = `bold ${Math.round(18 * scale)}px monospace`
+          const isTSpin  = ft.text.includes('T-SPIN') || ft.text.includes('ALL-SPIN')
+          const isTetris = ft.text.includes('TETRIS')
+          const isB2B    = ft.text.startsWith('B2B')
+          ctx.fillStyle  = isB2B ? '#ffd700' : isTetris ? '#00e5ff' : isTSpin ? '#cc88ff' : '#ffffff'
+          ctx.shadowColor = ctx.fillStyle
+          ctx.shadowBlur = 24
+          const tw = ctx.measureText(ft.text).width
+          ctx.fillText(ft.text, (canvas.width - tw) / 2, Math.max(18, fy))
+        } else {
+          ctx.font = 'bold 13px monospace'
+          ctx.fillStyle = '#ffffff'
+          ctx.shadowColor = '#aa66ff'
+          ctx.shadowBlur = 18
+          const fx = ft.x * CELL_SIZE
+          ctx.fillText(ft.text, Math.max(2, Math.min(fx, canvas.width - 130)), Math.max(12, fy))
+        }
         ctx.restore()
       })
-    }
-
-    // Lock flash — brief white overlay when a piece locks
-    if (state.lockFlash) {
-      ctx.save()
-      ctx.globalAlpha = 0.18
-      ctx.fillStyle = '#ffffff'
-      ctx.fillRect(0, 0, canvas.width, canvas.height)
-      ctx.restore()
     }
 
     ctx.restore()

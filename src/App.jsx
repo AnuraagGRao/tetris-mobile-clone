@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import './App.css'
 import GameCanvas from './components/GameCanvas'
@@ -329,6 +329,52 @@ export default function App() {
     window.addEventListener('resize', handler)
     return () => window.removeEventListener('resize', handler)
   }, [])
+
+  // ─── Visual Viewport sync ───────────────────────────────────────────────────
+  // Keeps --app-height in sync with the *visual* viewport so that mobile-layout
+  // fills exactly the visible area even when the browser chrome is animating in/out.
+  const syncAppHeight = useCallback(() => {
+    const h = window.visualViewport ? window.visualViewport.height : window.innerHeight
+    document.documentElement.style.setProperty('--app-height', `${h}px`)
+  }, [])
+
+  useEffect(() => {
+    syncAppHeight()
+    const vvp = window.visualViewport
+    if (vvp) {
+      vvp.addEventListener('resize', syncAppHeight)
+      vvp.addEventListener('scroll', syncAppHeight)
+    }
+    window.addEventListener('resize', syncAppHeight)
+    return () => {
+      if (vvp) {
+        vvp.removeEventListener('resize', syncAppHeight)
+        vvp.removeEventListener('scroll', syncAppHeight)
+      }
+      window.removeEventListener('resize', syncAppHeight)
+    }
+  }, [syncAppHeight])
+
+  // Re-sync whenever the UI hidden state changes so the canvas fills the freed
+  // space on the very first toggle without requiring a second tap.
+  useEffect(() => {
+    syncAppHeight()
+    // Belt-and-suspenders: nudge layout engine after the CSS transition starts
+    const id = setTimeout(syncAppHeight, 50)
+    return () => clearTimeout(id)
+  }, [isUiHidden, syncAppHeight])
+
+  // Toggle handler — forces a repaint immediately after state update
+  const handleUiToggle = useCallback(() => {
+    setIsUiHidden(h => !h)
+    // schedule height re-sync after React has committed the class change:
+    // rAF fires after the next paint; the 1 ms follow-up catches browsers that
+    // defer the visual-viewport update until after the first frame (Mobile Safari).
+    requestAnimationFrame(() => {
+      syncAppHeight()
+      setTimeout(syncAppHeight, 1)
+    })
+  }, [syncAppHeight])
 
   // Sync infection-timer multiplier: give mobile portrait players 1.5× more reaction time
   useEffect(() => {
@@ -1314,7 +1360,7 @@ export default function App() {
       <button
         type="button"
         className="ui-toggle-tab"
-        onClick={() => setIsUiHidden(h => !h)}
+        onClick={handleUiToggle}
         aria-label={isUiHidden ? 'Show controls' : 'Hide controls'}
       >
         {isUiHidden ? '▲' : '▼'}

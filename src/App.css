@@ -762,7 +762,7 @@ button:focus-visible { outline: 2px solid var(--c-accent); outline-offset: 2px; 
   .mobile-layout {
     display: flex;
     flex-direction: column;
-    height: 100svh;
+    height: var(--app-height, 100svh);
     overflow: hidden;
     width: 100%;
     background: var(--c-bg);
@@ -974,7 +974,7 @@ button:focus-visible { outline: 2px solid var(--c-accent); outline-offset: 2px; 
   .mobile-versus-layout {
     display: flex;
     flex-direction: column;
-    min-height: 100svh;
+    min-height: var(--app-height, 100svh);
     width: 100%;
     background: var(--c-bg);
   }

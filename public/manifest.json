@@ -4,7 +4,7 @@
   "description": "Mobile-first PWA Tetris clone with modern guideline mechanics.",
   "start_url": "/tetris-mobile-clone/",
   "scope": "/tetris-mobile-clone/",
-  "display": "standalone",
+  "display": "fullscreen",
   "background_color": "#05060d",
   "theme_color": "#05060d",
   "orientation": "any",

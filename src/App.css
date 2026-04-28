@@ -763,6 +763,8 @@ button:focus-visible { outline: 2px solid var(--c-accent); outline-offset: 2px; 
     display: flex;
     flex-direction: column;
     height: var(--app-height, 100svh);
+    /* Prevent content from hiding behind Android gesture/nav bar in PWA standalone */
+    padding-bottom: env(safe-area-inset-bottom, 0px);
     overflow: hidden;
     width: 100%;
     background: var(--c-bg);

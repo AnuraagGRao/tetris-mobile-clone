@@ -1,12 +1,73 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="192" height="192" viewBox="0 0 192 192">
-  <rect width="192" height="192" rx="36" fill="#05060d"/>
-  <g fill="#00f5ff" filter="url(#g)">
-    <rect x="36" y="44" width="28" height="28"/>
-    <rect x="64" y="44" width="28" height="28"/>
-    <rect x="92" y="44" width="28" height="28"/>
-    <rect x="120" y="44" width="28" height="28"/>
-  </g>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 192 192" width="192" height="192">
   <defs>
-    <filter id="g"><feGaussianBlur stdDeviation="2.5"/></filter>
+    <!-- Background gradient -->
+    <radialGradient id="bgr" cx="50%" cy="42%" r="55%">
+      <stop offset="0%" stop-color="#0d1a2e"/>
+      <stop offset="100%" stop-color="#05060d"/>
+    </radialGradient>
+    <!-- Cyan block (I-piece / crossbar) -->
+    <linearGradient id="lc" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#a0fdff"/>
+      <stop offset="32%" stop-color="#00f5ff"/>
+      <stop offset="100%" stop-color="#00858f"/>
+    </linearGradient>
+    <!-- Purple block (T-piece / junction) -->
+    <linearGradient id="lp" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#ec9bf8"/>
+      <stop offset="32%" stop-color="#c026d3"/>
+      <stop offset="100%" stop-color="#6b0e7a"/>
+    </linearGradient>
+    <!-- Orange block (L-piece / stem) -->
+    <linearGradient id="lo" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#fed7aa"/>
+      <stop offset="32%" stop-color="#f97316"/>
+      <stop offset="100%" stop-color="#7c3710"/>
+    </linearGradient>
+    <!-- Glow filters -->
+    <filter id="fc" x="-60%" y="-60%" width="220%" height="220%">
+      <feDropShadow dx="0" dy="0" stdDeviation="5" flood-color="#00f5ff" flood-opacity="0.85"/>
+    </filter>
+    <filter id="fp" x="-60%" y="-60%" width="220%" height="220%">
+      <feDropShadow dx="0" dy="0" stdDeviation="5" flood-color="#d946ef" flood-opacity="0.85"/>
+    </filter>
+    <filter id="fo" x="-60%" y="-60%" width="220%" height="220%">
+      <feDropShadow dx="0" dy="0" stdDeviation="5" flood-color="#f97316" flood-opacity="0.85"/>
+    </filter>
   </defs>
+
+  <!-- Background -->
+  <rect width="192" height="192" rx="36" fill="url(#bgr)"/>
+
+  <!-- ═══ T-letter shape ═══
+       Grid: 5 cols × 5 rows, block=26px, gap=2px
+       x(c) = 27 + c*28   y(r) = 27 + r*28
+  -->
+
+  <!-- Row 0 — crossbar (5 cyan blocks) -->
+  <rect x="27"  y="27" width="26" height="26" rx="4" fill="url(#lc)" filter="url(#fc)"/>
+  <rect x="27"  y="29" width="16" height="5"  rx="1" fill="rgba(255,255,255,0.30)"/>
+  <rect x="55"  y="27" width="26" height="26" rx="4" fill="url(#lc)" filter="url(#fc)"/>
+  <rect x="55"  y="29" width="16" height="5"  rx="1" fill="rgba(255,255,255,0.30)"/>
+  <rect x="83"  y="27" width="26" height="26" rx="4" fill="url(#lc)" filter="url(#fc)"/>
+  <rect x="83"  y="29" width="16" height="5"  rx="1" fill="rgba(255,255,255,0.30)"/>
+  <rect x="111" y="27" width="26" height="26" rx="4" fill="url(#lc)" filter="url(#fc)"/>
+  <rect x="111" y="29" width="16" height="5"  rx="1" fill="rgba(255,255,255,0.30)"/>
+  <rect x="139" y="27" width="26" height="26" rx="4" fill="url(#lc)" filter="url(#fc)"/>
+  <rect x="139" y="29" width="16" height="5"  rx="1" fill="rgba(255,255,255,0.30)"/>
+
+  <!-- Row 1 — T-junction (3 purple blocks, cols 1–3) -->
+  <rect x="55"  y="55" width="26" height="26" rx="4" fill="url(#lp)" filter="url(#fp)"/>
+  <rect x="55"  y="57" width="16" height="5"  rx="1" fill="rgba(255,255,255,0.25)"/>
+  <rect x="83"  y="55" width="26" height="26" rx="4" fill="url(#lp)" filter="url(#fp)"/>
+  <rect x="83"  y="57" width="16" height="5"  rx="1" fill="rgba(255,255,255,0.25)"/>
+  <rect x="111" y="55" width="26" height="26" rx="4" fill="url(#lp)" filter="url(#fp)"/>
+  <rect x="111" y="57" width="16" height="5"  rx="1" fill="rgba(255,255,255,0.25)"/>
+
+  <!-- Rows 2–4 — stem (3 orange blocks, col 2) -->
+  <rect x="83" y="83"  width="26" height="26" rx="4" fill="url(#lo)" filter="url(#fo)"/>
+  <rect x="83" y="85"  width="16" height="5"  rx="1" fill="rgba(255,255,255,0.22)"/>
+  <rect x="83" y="111" width="26" height="26" rx="4" fill="url(#lo)" filter="url(#fo)"/>
+  <rect x="83" y="113" width="16" height="5"  rx="1" fill="rgba(255,255,255,0.18)"/>
+  <rect x="83" y="139" width="26" height="26" rx="4" fill="url(#lo)" filter="url(#fo)"/>
+  <rect x="83" y="141" width="16" height="5"  rx="1" fill="rgba(255,255,255,0.14)"/>
 </svg>

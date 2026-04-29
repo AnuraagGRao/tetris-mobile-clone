@@ -907,6 +907,7 @@ export default function App() {
   const zoneReady  = state.zoneMeter >= ZONE_MIN_METER
   const isPurify   = state.mode === GAME_MODE.PURIFY
   const isUltimate = state.mode === GAME_MODE.ULTIMATE
+  const isVersus   = state.mode === GAME_MODE.VERSUS
   const showZone   = state.mode === GAME_MODE.NORMAL || state.mode === GAME_MODE.ULTIMATE
 
   // Glitch effect: active in Ultimate when stack reaches row 10 from top

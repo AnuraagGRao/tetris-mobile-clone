@@ -182,21 +182,19 @@ export const createLobby = async (uid, displayName, { bestOf = 3 } = {}) => {
 
 export const joinLobby = async (code, uid, displayName) => {
   const ref = doc(db, 'lobbies', code)
-  const snap = await getDoc(ref)
-  if (!snap.exists()) throw new Error('Lobby not found')
-  const lobby = snap.data()
-  if (lobby.status !== 'waiting') throw new Error('Game already started')
-  if (lobby.players.length >= MAX_LOBBY_PLAYERS) throw new Error('Lobby is full')
-  if (lobby.players.some(p => p.uid === uid)) return lobby // already in
-
-  await updateDoc(ref, {
-    players: [...lobby.players, {
-      uid,
-      displayName: displayName || `Player ${lobby.players.length + 1}`,
-      ready: false, score: 0, gameOver: false, boardSnapshot: null, garbageSentTo: {},
-    }],
+  return await runTransaction(db, async (tx) => {
+    const snap = await tx.get(ref)
+    if (!snap.exists()) throw new Error('Lobby not found')
+    const lobby = snap.data()
+    if (lobby.status !== 'waiting') throw new Error('Game already started')
+    const players = Array.isArray(lobby.players) ? lobby.players.slice() : []
+    if (players.length >= MAX_LOBBY_PLAYERS) throw new Error('Lobby is full')
+    if (players.some(p => p.uid === uid)) return lobby
+    const name = displayName || `Player ${players.length + 1}`
+    players.push({ uid, displayName: name, ready: false, score: 0, gameOver: false, boardSnapshot: null, garbageSentTo: {} })
+    tx.update(ref, { players })
+    return { ...lobby, players }
   })
-  return { ...lobby }
 }
 
 export const updateLobbyPlayer = async (code, uid, update) => {

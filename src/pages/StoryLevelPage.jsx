@@ -20,6 +20,49 @@ function getPieceColor(type, theme) {
   return (PIECE_COLOR_MAPS[theme]?.[type]) ?? PIECES[type]?.color ?? '#888888'
 }
 
+// ─── Local SFX (Web Audio) ──────────────────────────────────────────────────
+let _stAudioCtx = null
+let _stSfxVol   = 2.0
+const getStAudio = () => {
+  const Ctx = window.AudioContext || window.webkitAudioContext
+  if (!Ctx) return null
+  if (!_stAudioCtx) _stAudioCtx = new Ctx()
+  if (_stAudioCtx.state === 'suspended') _stAudioCtx.resume()
+  return _stAudioCtx
+}
+const stNote = (freq, dur, gain, type = 'triangle', offset = 0) => {
+  const ctx = getStAudio(); if (!ctx) return
+  const osc = ctx.createOscillator(), g = ctx.createGain()
+  osc.connect(g); g.connect(ctx.destination)
+  osc.type = type; osc.frequency.value = freq
+  const t = ctx.currentTime + offset
+  g.gain.setValueAtTime(Math.max(0, gain) * _stSfxVol, t)
+  g.gain.exponentialRampToValueAtTime(0.001, t + dur)
+  osc.start(t); osc.stop(t + dur + 0.01)
+}
+const stNoise = (lpFreq, gain, dur, offset = 0) => {
+  const ctx = getStAudio(); if (!ctx) return
+  const len = Math.ceil(ctx.sampleRate * Math.min(dur, 0.5))
+  const buf = ctx.createBuffer(1, len, ctx.sampleRate)
+  const d = buf.getChannelData(0)
+  for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1
+  const src = ctx.createBufferSource(); src.buffer = buf
+  const flt = ctx.createBiquadFilter(); flt.type = 'lowpass'; flt.frequency.value = lpFreq
+  const g = ctx.createGain(); src.connect(flt); flt.connect(g); g.connect(ctx.destination)
+  const t = ctx.currentTime + offset
+  g.gain.setValueAtTime(Math.max(0, gain) * _stSfxVol, t)
+  g.gain.exponentialRampToValueAtTime(0.001, t + dur)
+  src.start(t); src.stop(t + dur + 0.01)
+}
+let _lastStMoveBeep = 0
+const sfxMove     = () => { const n = performance.now(); if (n - _lastStMoveBeep < 75) return; _lastStMoveBeep = n; stNote(380, 0.022, 0.026, 'triangle') }
+const sfxRotate   = () => { stNote(1100, 0.032, 0.22, 'triangle'); stNote(750, 0.020, 0.16, 'sine', 0.010) }
+const sfxHold     = () =>   stNote(660, 0.018, 0.15, 'triangle')
+const sfxHardDrop = () => { stNote(75, 0.18, 0.44, 'sine'); stNote(410, 0.06, 0.14, 'triangle', 0.010); stNoise(900, 0.18, 0.06, 0.012) }
+const sfxClear    = (lines = 1) => { stNoise(9000, 0.18, 0.11); (lines >= 4 ? [392,523,659,784,1047] : [392,523,659,784]).forEach((f,i)=>stNote(f,0.095,0.18,'sine',i*0.062)) }
+const sfxLock     = () => { const ctx = getStAudio(); if (!ctx) return; const osc = ctx.createOscillator(), g = ctx.createGain(); osc.connect(g); g.connect(ctx.destination); osc.type='sine'; const t=ctx.currentTime; osc.frequency.setValueAtTime(110,t); osc.frequency.exponentialRampToValueAtTime(52,t+0.07); g.gain.setValueAtTime(0.18*_stSfxVol,t); g.gain.exponentialRampToValueAtTime(0.001,t+0.10); osc.start(t); osc.stop(t+0.11) }
+const sfxZoneOn   = () => { stNote(784,0.18,0.16,'triangle'); stNote(1047,0.22,0.14,'triangle',0.10) }
+
 const KEY_BINDINGS = {
   ArrowLeft:  { held: 'left' },
   ArrowRight: { held: 'right' },
@@ -221,7 +264,18 @@ export default function StoryLevelPage() {
   const storyMusicRef = useRef(null)
   const beatRef       = useRef(0)
   const [musicTick, setMusicTick] = useState(0) // force UI refresh on media actions
+  const [storyMuted, setStoryMuted] = useState(false)
   const [showSettings, setShowSettings] = useState(false)
+  const CONFIG_KEY = 'tetris-config'
+  const DEFAULT_CONFIG = { sfxEnabled: true, hapticEnabled: true, musicVolume: 1.0, sfxVolume: 2.0, das: 110, arr: 25, showOnScreenControls: false }
+  const loadConfig = () => { try { return { ...DEFAULT_CONFIG, ...JSON.parse(localStorage.getItem(CONFIG_KEY) ?? '{}') } } catch { return { ...DEFAULT_CONFIG } } }
+  const [config, setConfig] = useState(loadConfig)
+
+  // Persist + apply settings
+  useEffect(() => { try { localStorage.setItem(CONFIG_KEY, JSON.stringify(config)) } catch {} }, [config])
+  useEffect(() => { try { engine.setSettings({ das: config.das, arr: config.arr }) } catch {} }, [config.das, config.arr, engine])
+  useEffect(() => { try { storyMusicRef.current?.setVolume?.(config.musicVolume) } catch {} }, [config.musicVolume])
+  useEffect(() => { _stSfxVol = config.sfxVolume ?? 2.0 }, [config.sfxVolume])
 
   // Apply DAS / ARR config
   useEffect(() => {
@@ -363,6 +417,26 @@ export default function StoryLevelPage() {
     triggerAction('hardDrop')
   }, [handleRelease, triggerAction])
 
+  // ── SFX triggers (edge-detected) ───────────────────────────────────────────
+  const prevStateRef = useRef(null)
+  useEffect(() => {
+    if (!config.sfxEnabled) { prevStateRef.current = state; return }
+    const prev = prevStateRef.current
+    if (prev) {
+      if (state.hardDropped)               sfxHardDrop()
+      else if (state.pieceLocked)          sfxLock()
+      if (state.lastClear?.lines > 0)      sfxClear(state.lastClear.lines)
+      if (state.pieceHeld)                 sfxHold()
+      if (prev.zoneActive !== state.zoneActive && state.zoneActive) sfxZoneOn()
+      // Move / rotate only when the same piece is active
+      if (prev.current?.type === state.current?.type) {
+        if (state.current?.x !== prev.current?.x)          sfxMove()
+        else if (state.current?.rotation !== prev.current?.rotation) sfxRotate()
+      }
+    }
+    prevStateRef.current = state
+  }, [state, config.sfxEnabled])
+
   if (!found) {
     return (
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100dvh', background: '#0a0a14', color: '#f87171', fontFamily: 'monospace', fontSize: '0.9rem', letterSpacing: '0.15em' }}>
@@ -501,8 +575,36 @@ export default function StoryLevelPage() {
                     <div style={{ fontSize: '0.56rem', color: '#555', letterSpacing: '0.14em' }}>
                       Lv {state.level} · {linesThisLevel} / {level.targetLines || '∞'} lines
                     </div>
-                    {/* Media player controls */}
-                    <MediaControls storyMusicRef={storyMusicRef} chapterColor={chapter.color} />
+                    {/* Media controls — match Solo pause menu */}
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: '0.25rem', alignItems: 'center' }}>
+                      <div style={{ fontSize: '0.62rem', color: '#bbb', letterSpacing: '0.12em' }}>
+                        Now Playing: <span style={{ color: '#fff' }}>{storyMusicRef.current?.getNowPlaying?.()?.title || '—'}</span>
+                      </div>
+                      <div style={{ display: 'flex', gap: 8, justifyContent: 'center', flexWrap: 'wrap' }}>
+                        <button type="button"
+                          onClick={() => storyMusicRef.current?.prev?.()}
+                          style={{ background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.18)', color: '#ccc', borderRadius: 6, padding: '5px 12px', fontSize: '0.72rem', cursor: 'pointer', fontFamily: 'inherit' }}>⏮</button>
+                        {storyMuted ? (
+                          <button type="button"
+                            onClick={() => { storyMusicRef.current?.resume?.(); setStoryMuted(false) }}
+                            style={{ background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.18)', color: '#ccc', borderRadius: 6, padding: '5px 12px', fontSize: '0.72rem', cursor: 'pointer', fontFamily: 'inherit' }}>▶</button>
+                        ) : (
+                          <button type="button"
+                            onClick={() => { storyMusicRef.current?.pause?.(); setStoryMuted(true) }}
+                            style={{ background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.18)', color: '#ccc', borderRadius: 6, padding: '5px 12px', fontSize: '0.72rem', cursor: 'pointer', fontFamily: 'inherit' }}>⏸</button>
+                        )}
+                        <button type="button"
+                          onClick={() => storyMusicRef.current?.next?.()}
+                          style={{ background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.18)', color: '#ccc', borderRadius: 6, padding: '5px 12px', fontSize: '0.72rem', cursor: 'pointer', fontFamily: 'inherit' }}>⏭</button>
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <span style={{ fontSize: '0.60rem', color: '#777' }}>Vol</span>
+                        <input type="range" min={0} max={1} step={0.01}
+                          value={config.musicVolume}
+                          onChange={(e) => { const v = parseFloat(e.target.value); setConfig(prev => ({ ...prev, musicVolume: v })); storyMusicRef.current?.setVolume?.(v) }}
+                          style={{ width: 180 }} />
+                      </div>
+                    </div>
                     <div style={{ display: 'flex', gap: 8, justifyContent: 'center', flexWrap: 'wrap' }}>
                       <button
                         onClick={() => setShowSettings(true)}
@@ -619,7 +721,7 @@ export default function StoryLevelPage() {
               <div style={{ fontSize: '0.8rem', letterSpacing: '0.16em', color: '#fff' }}>SETTINGS</div>
               <button onClick={() => setShowSettings(false)} style={{ background: 'none', border: '1px solid rgba(255,255,255,0.18)', color: '#ccc', borderRadius: 6, padding: '5px 10px', cursor: 'pointer', fontSize: '0.72rem', fontFamily: 'inherit' }}>✕ Close</button>
             </div>
-            <SettingsPage inline />
+            <SettingsPage config={config} onConfig={setConfig} onClose={() => setShowSettings(false)} />
           </div>
         </div>
       )}

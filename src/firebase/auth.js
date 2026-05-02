@@ -1,16 +1,12 @@
 import {
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
-  signInWithPopup,
-  GoogleAuthProvider,
-  signInAnonymously as fbSignInAnonymously,
   signOut as fbSignOut,
   updateProfile,
+  sendPasswordResetEmail,
 } from 'firebase/auth'
 import { auth } from './config'
 import { createUserProfile } from './db'
-
-const googleProvider = new GoogleAuthProvider()
 
 export const signUpWithEmail = async (email, password, displayName) => {
   const cred = await createUserWithEmailAndPassword(auth, email, password)
@@ -24,19 +20,11 @@ export const signInWithEmail = async (email, password) => {
   return cred.user
 }
 
-export const signInWithGoogle = async () => {
-  const cred = await signInWithPopup(auth, googleProvider)
-  await createUserProfile(cred.user.uid, {
-    displayName: cred.user.displayName,
-    email: cred.user.email,
-  })
-  return cred.user
-}
-
-export const signInAsGuest = async () => {
-  const cred = await fbSignInAnonymously(auth)
-  await createUserProfile(cred.user.uid, { displayName: 'Guest', email: null })
-  return cred.user
-}
+// Google and guest sign-in disabled
 
 export const signOut = () => fbSignOut(auth)
+
+export const sendPasswordReset = async (email) => {
+  if (!email) throw new Error('auth/missing-email')
+  await sendPasswordResetEmail(auth, email)
+}
